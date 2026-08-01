@@ -7,17 +7,40 @@ import { DEFAULT_TINT_A } from '../villainColors'
 const HOP_MS = 520
 const SWAP_MS = 720
 
-// Réservoir par défaut : les pions de tous les vilains natifs (le registre custom n'est pas
-// itérable ici ; on peut compléter via la prop `extraPawns`). Calculé une fois au chargement.
-const NATIVE_PAWNS: string[] = [
-  ...new Set(Object.values(VILLAIN_REGISTRY).map((e) => e.def.pawnImage).filter(Boolean)),
-]
+/** Un pion du carrousel : son image + sa hauteur CALIBRÉE (celle du plateau). */
+export interface LoaderPawn {
+  src: string
+  /** `VillainDef.pawnHeightPx` — les pions ont des proportions très différentes. */
+  heightPx: number
+}
 
-// Gabarits : dimensions du pion + du halo au sol.
+/**
+ * Réservoir par défaut : les pions de tous les vilains natifs (le registre custom n'est pas
+ * itérable ici ; on peut compléter via la prop `extraPawns`). Calculé une fois au chargement.
+ * On garde la hauteur calibrée de chaque vilain : les sources sont de tailles très variables
+ * (45×106 pour Maléfique, 1024×1024 pour Bowser) et seul `pawnHeightPx` donne l'échelle juste.
+ */
+const NATIVE_PAWNS: LoaderPawn[] = dedupe(
+  Object.values(VILLAIN_REGISTRY).map((e) => ({
+    src: e.def.pawnImage,
+    heightPx: e.def.pawnHeightPx,
+  })),
+)
+
+/** Dédoublonne par image (deux vilains peuvent partager un pion) et écarte les entrées vides. */
+function dedupe(pawns: LoaderPawn[]): LoaderPawn[] {
+  const by = new Map<string, LoaderPawn>()
+  for (const p of pawns) if (p.src && p.heightPx > 0 && !by.has(p.src)) by.set(p.src, p)
+  return [...by.values()]
+}
+
+// Gabarits : la BOÎTE est fixe (pas de saut de mise en page) et `scale` multiplie la hauteur
+// calibrée du pion. On reste proche de l'échelle du plateau (~70→120 px) : au-delà, les petites
+// sources (Prince Jean 64×79, Maléfique 45×106) sont agrandies et deviennent floues.
 const SIZES = {
-  sm: { box: 'h-24 w-24', img: 'h-20 w-20', halo: 'h-4 w-16' },
-  md: { box: 'h-32 w-32', img: 'h-28 w-28', halo: 'h-5 w-24' },
-  lg: { box: 'h-44 w-44', img: 'h-40 w-40', halo: 'h-6 w-28' },
+  sm: { box: 'h-24 w-24', scale: 0.75 },
+  md: { box: 'h-32 w-32', scale: 1 },
+  lg: { box: 'h-44 w-44', scale: 1.3 },
 } as const
 
 // Mélange (Fisher-Yates). Purement présentation → `Math.random` autorisé (hors moteur).
@@ -38,7 +61,7 @@ interface Props {
   /** Teinte du halo au sol (couleur du vilain courant, etc.). Défaut : ambre. */
   tint?: string
   /** Pions à ajouter au réservoir natif (ex. les vilains custom en jeu). */
-  extraPawns?: string[]
+  extraPawns?: LoaderPawn[]
   className?: string
 }
 
@@ -48,15 +71,18 @@ interface Props {
  * de préparation de partie, liste des vilains de l'Atelier, rapports de dév…).
  */
 export function PawnLoader({ label, size = 'md', tint = DEFAULT_TINT_A, extraPawns, className }: Props) {
-  const [pool] = useState<string[]>(() =>
-    extraPawns?.length ? [...new Set([...NATIVE_PAWNS, ...extraPawns])] : NATIVE_PAWNS,
+  const [pool] = useState<LoaderPawn[]>(() =>
+    extraPawns?.length ? dedupe([...NATIVE_PAWNS, ...extraPawns]) : NATIVE_PAWNS,
   )
   // Ordre courant + position, tenus ensemble pour rester synchrones lors du re-mélange de fin de tour.
-  const [pos, setPos] = useState<{ order: string[]; idx: number }>(() => ({
+  const [pos, setPos] = useState<{ order: LoaderPawn[]; idx: number }>(() => ({
     order: shuffled(pool),
     idx: 0,
   }))
   const [hopKey, setHopKey] = useState(0) // remonte l'<img> → rejoue l'animation d'entrée
+  // Largeur RENDUE du pion courant, mesurée au chargement de l'image : le halo au sol s'y ajuste
+  // (un socle fin comme Maléfique et un socle large comme Ratigan n'ont pas la même emprise).
+  const [pawnW, setPawnW] = useState(0)
 
   useEffect(() => {
     if (pool.length <= 1) return
@@ -67,7 +93,7 @@ export function PawnLoader({ label, size = 'md', tint = DEFAULT_TINT_A, extraPaw
         // Fin de tour : on re-mélange, en évitant de reprendre le même pion qu'à l'instant.
         const last = order[idx]
         const reshuffled = shuffled(pool)
-        if (reshuffled[0] === last && reshuffled.length > 1) {
+        if (reshuffled[0].src === last.src && reshuffled.length > 1) {
           ;[reshuffled[0], reshuffled[1]] = [reshuffled[1], reshuffled[0]]
         }
         return { order: reshuffled, idx: 0 }
@@ -78,7 +104,9 @@ export function PawnLoader({ label, size = 'md', tint = DEFAULT_TINT_A, extraPaw
   }, [pool])
 
   const s = SIZES[size]
-  const src = pos.order[pos.idx]
+  const pawn = pos.order[pos.idx]
+  const h = Math.round(pawn.heightPx * s.scale)
+  const haloW = Math.round(Math.max(28, pawnW * 1.15))
 
   return (
     <div className={`flex flex-col items-center gap-3 ${className ?? ''}`}>
@@ -93,18 +121,24 @@ export function PawnLoader({ label, size = 'md', tint = DEFAULT_TINT_A, extraPaw
       `}</style>
 
       <div className={`relative flex items-end justify-center ${s.box}`}>
-        {/* Halo/piédestal lumineux au sol. */}
+        {/* Halo/piédestal lumineux au sol, calé sur la largeur réelle du pion posé. */}
         <div
-          className={`absolute bottom-2 rounded-[50%] blur-md ${s.halo}`}
-          style={{ background: `radial-gradient(closest-side, ${tint}aa, transparent)` }}
+          className="absolute bottom-2 h-5 rounded-[50%] blur-md transition-[width] duration-200"
+          style={{ width: haloW, background: `radial-gradient(closest-side, ${tint}aa, transparent)` }}
         />
         <img
           key={hopKey}
-          src={src}
+          src={pawn.src}
           alt=""
           draggable={false}
-          className={`relative object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.6)] ${s.img}`}
+          onLoad={(e) => {
+            const img = e.currentTarget
+            setPawnW(img.naturalHeight ? (img.naturalWidth / img.naturalHeight) * h : 0)
+          }}
+          className="relative w-auto object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.6)]"
           style={{
+            height: h,
+            maxWidth: '100%',
             animation: `pawnHop ${HOP_MS}ms cubic-bezier(0.34, 1.56, 0.64, 1) both`,
             transformOrigin: 'bottom center',
           }}

@@ -62,10 +62,11 @@ export interface VillainAnimation {
    *    Jean : pièces ; Méchante Reine : pommes empoisonnées).
    *  - `water-cross` : le clip `video` (en boucle, bords adoucis) traverse le HAUT de
    *    l'écran de gauche à droite (Capitaine Crochet : Tic-Tac et ses bulles).
-   *  - `rise` : des copies de `image` montent du bas vers le haut en ondulant et en
-   *    s'estompant, taille/colonne/vitesse au hasard, sur toute la surface (Ursula :
-   *    bulles). Densité réglable via `count`, répartition `sides` (deux côtés) ;
-   *    réutilisable (Hadès : nuée d'âmes, Scar : braises).
+   *  - `rise` : des copies de `image` (ou une teinte tirée parmi `images`) APPARAISSENT EN BAS
+   *    de l'écran, montent jusqu'en haut en ondulant, en fondu aux deux extrémités ;
+   *    taille/colonne/vitesse au hasard, sur toute la surface (Ursula : bulles). Densité
+   *    réglable via `count`, répartition `sides` (deux côtés) ; réutilisable (Hadès : nuée
+   *    d'âmes, Scar : braises, Dio : ses symboles de menace).
    *  - `voodoo` : `image` (totems) apparaît en fondu au-dessus du plateau du vilain
    *    (bas si joueur, haut si adversaire) ; `overlayImage` (les yeux) se superpose et
    *    brille fort en violet, puis tout s'assombrit en disparaissant (Dr Facilier).
@@ -114,15 +115,38 @@ export interface VillainAnimation {
    *    propagent depuis un centre à travers tout l'écran (la réalité se craquelle), puis des TRAITS
    *    ROUGES lumineux SURGISSENT le long des mêmes fissures (l'énergie du Monde à l'Envers), le tout
    *    sur un voile sombre, avant de se dissiper (Le Flagelleur Mental). Durée via `durationSec`.
+   *  - `fel-rain` : la PLUIE DE GANGRÉNÉ — une averse de météores fel tombe EN DIAGONALE sur tout
+   *    l'écran (tous inclinés dans le même sens, celui du camp), chacun traînant sa queue, et crève en
+   *    une flaque de lumière verte en bas. 100 % CSS, aucun asset (Gul'dan). Densité via `count`,
+   *    durée via `durationSec`.
    *  - `dark-embers` : TRANSITION d'ambiance plein écran — tout l'arrière-plan S'ASSOMBRIT (un voile
    *    sombre teinté violet monte puis redescend) tandis que des ÉTINCELLES / braises ROUGE & VIOLET
    *    montent en scintillant un peu partout, puis tout revient à la normale (les Ténèbres de Sumbra
-   *    qui effleurent le monde). 100 % CSS. Densité via `count`, durée via `durationSec`. */
+   *    qui effleurent le monde). 100 % CSS. Densité via `count`, durée via `durationSec`.
+   *  - `tattoos` : pas de trajet ; des TEXTES (`texts`) s'impriment un à un PARTOUT sur l'écran, à des
+   *    positions et inclinaisons au hasard, comme des coups de TAMPON (ils arrivent flous et trop
+   *    grands, se posent net, marquent un temps, puis s'effacent). Départs échelonnés → l'écran se
+   *    couvre le temps du passage. 100 % texte, aucun asset (Isabella : les matricules tatoués sur la
+   *    nuque des enfants). Densité via `count`, taille via `heightPct`, durée via `durationSec`.
+   *  - `ashes` : pas de trajet ; LA POUSSIÈRE — des CENDRES (CSS, sans image, teintes GRIS CENDRE et
+   *    BRUN terreux, mates : elles ne brillent pas) naissent en bas de l'écran et S'ENVOLENT vers le
+   *    haut sur toute la largeur, en tourbillonnant (dérive latérale + rotation), par bouffées
+   *    échelonnées, puis se dissipent : les êtres que le Claquement a réduits en poussière (Thanos).
+   *    Densité via `count` (la prendre GÉNÉREUSE : c'est un écran enseveli), durée via `durationSec`.
+   *  - `beam` : LE RAYON — pas de prop. Un point d'énergie se CHARGE au bord de l'écran (côté du camp :
+   *    joueur à gauche, adversaire à droite), puis un TRAIT rouge-blanc file à l'horizontale et traverse
+   *    tout l'écran d'un coup ; un flash claque à la bouche, une ONDE DE CHOC s'écarte de part et d'autre
+   *    du trait, et des braises soulevées montent en s'éteignant (Ultron). 100 % CSS, aucun asset.
+   *    Densité des braises via `count`, durée totale via `durationSec`.
+   *  - `sigil` : pas de trajet ; `image` (un SCEAU) apparaît GRAND et CENTRÉ sur l'écran, s'embrase
+   *    (halo pulsant derrière, trait incandescent) en crachant des BRAISES qui montent, puis se
+   *    dissipe (Pyramid Head : le Halo du Soleil / sceau de Metatron). Densité des braises via
+   *    `count`, durée via `durationSec`, taille via `heightPct`. */
   path?:
     | 'cross' | 'sky-arc' | 'drift-spin' | 'pages' | 'roses' | 'coins' | 'water-cross'
     | 'rise' | 'voodoo' | 'fire-bottom' | 'fade' | 'paws' | 'petals' | 'jet-cross' | 'smoke-field'
     | 'overgrowth' | 'eject-arc' | 'stardust' | 'drop' | 'disco' | 'dash-right' | 'portal-cracks'
-    | 'dark-embers'
+    | 'dark-embers' | 'fel-rain' | 'sigil' | 'tattoos' | 'ashes' | 'beam'
   /** Tire quelques coups de canon (lueur + fumée à la bouche du canon avant)
    *  pendant le vol. Réservé aux trajectoires `sky-arc`. */
   cannons?: boolean
@@ -135,11 +159,16 @@ export interface VillainAnimation {
   spinTurns?: number
   /** Nombre d'éléments générés. Trajectoire `coins` : objets qui tombent (si absent ~48-66 ;
    *  Méchante Reine : quelques pommes). Trajectoire `rise` : âmes/bulles montantes (si absent
-   *  18-30 ; Hadès : nuée d'âmes). */
+   *  18-30 ; Hadès : nuée d'âmes ; Dio : symboles de menace). */
   count?: number
   /** Trajectoire `rise` : concentre les éléments sur les DEUX CÔTÉS (marges gauche/droite),
    *  en laissant le centre — où s'affichent les plateaux — plus dégagé (Hadès : âmes). */
   sides?: boolean
+  /** Trajectoire `rise` : durée de base d'UNE montée (bas → haut), en secondes (défaut 5 s). Chaque
+   *  élément tire ensuite jusqu'à +90 % (vitesses variées). Monter cette valeur ralentit la montée
+   *  — penser à rallonger `durationSec` en conséquence, sinon le calque est démonté avant la fin
+   *  (Dio : ses symboles de menace montent lentement). */
+  riseSec?: number
   /** Trajectoire `rise` : rend l'image floue et lui ajoute un halo lumineux derrière (aura
    *  spectrale qui suit l'ondulation) — pour des apparitions fantomatiques (Hadès : âmes). */
   glow?: boolean
@@ -154,6 +183,12 @@ export interface VillainAnimation {
   gait?: boolean
   /** Trajectoire `cross` : RETOURNE l'image verticalement (haut/bas, scaleY(-1)) (Madame Mim). */
   flipVertical?: boolean
+  /** Trajectoire `water-cross` avec une IMAGE, sans `onFoot`/`gait` : ajoute des TUYÈRES animées à
+   *  l'ARRIÈRE du prop — deux jets bleu-blanc qui vacillent + une longue traînée diffuse. Elles restent
+   *  toujours à la poupe (le miroir du sens de marche les emporte avec le prop). Les sorties de
+   *  propulseur sont calées sur un prop LARGE à deux réacteurs arrière (Grand Councilwoman : le vaisseau
+   *  de Stitch) ; un prop de forme très différente demanderait de les paramétrer. */
+  thrust?: boolean
   /** Trajectoire `water-cross` avec une IMAGE : ADOUCIT les bords (masque radial, comme le clip Tic-Tac
    *  de Crochet) → le bord du GIF/image se fond au lieu d'un cadre net (Pat Hibulaire : son steamboat). */
   softEdges?: boolean
@@ -174,6 +209,9 @@ export interface VillainAnimation {
   /** Trajectoire `petals` : les pétales portent-ils une petite FLAMMÈCHE ? Défaut `true` (rose enflammée
    *  de Gaston). Mettre `false` pour des pétales sans flamme (fleur d'or de Mère Gothel). */
   petalFlame?: boolean
+  /** Trajectoire `tattoos` : les textes tamponnés. Ils sont tirés au hasard (avec répétitions si la
+   *  liste est plus courte que `count`) — Isabella : les matricules des enfants de Grace Field. */
+  texts?: string[]
   /** Trajectoire `disco` : les teintes néon cyclées (voile plein écran + faisceaux). Au moins 3 couleurs
    *  CSS conseillées (Tamatoa : bleu / magenta / cyan). Défaut : les 3 teintes de Tamatoa. */
   colors?: string[]
@@ -198,6 +236,15 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     durationSec: 5,
     path: 'disco',
     colors: ['#0001FB', '#FD27FC', '#64D9FE'], // bleu / magenta / cyan (lumière noire de la grotte)
+  },
+  // Thanos (Marvel) : LA POUSSIÈRE — des cendres GRIS-MARRON naissent en bas de l'écran et s'envolent
+  // vers le haut en tourbillonnant, par bouffées, sur toute la largeur : ce qu'il reste de ceux que le
+  // Claquement a effacés. 100 % CSS, aucun asset. (Titan, le Gantelet-jauge et le Claquement lui-même
+  // sont un DÉCOR PERMANENT — cf. villainDecor.ts, kind `titan`.)
+  thanos: {
+    durationSec: 9, // couvre les bouffées échelonnées + la dernière montée
+    count: 600, // TRÈS dense : le passage doit ensevelir l'écran de poussière
+    path: 'ashes',
   },
   // Prince Jean (Robin des Bois) : une pluie de pièces d'or (11 angles découpés de
   // pieces.png) tombe du ciel jusqu'en bas, sur toute la largeur, chacune tournoyant.
@@ -562,6 +609,33 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
 // Animations de passage des vilains de l'ATELIER PUBLIÉ (indexées par id `custom-…`, hors de l'union
 // native `VillainKey`). Même contenu qu'une entrée `VILLAIN_ANIMATION`.
 export const CUSTOM_VILLAIN_ANIMATION: Record<string, VillainAnimation | VillainAnimation[]> = {
+  // Pyramid Head (Silent Hill) : le HALO DU SOLEIL (sceau de Metatron) s'embrase au centre de l'écran
+  // — halo rouge pulsant derrière le sceau, trait incandescent, et des braises rouges qui montent —
+  // puis tout se dissipe (path `sigil`).
+  'custom-pyramid-head': {
+    image: '/animations/metatron.png',
+    heightPct: 62, // hauteur du sceau, en % de la hauteur d'écran
+    durationSec: 7,
+    count: 44, // braises
+    path: 'sigil',
+  },
+  // Ultron (Marvel) : LE RAYON — l'énergie se charge au bord de l'écran (côté du camp), puis le trait
+  // rouge-blanc traverse tout l'écran d'un coup, onde de choc et braises soulevées (path `beam`).
+  'custom-ultron': {
+    durationSec: 3.4,
+    count: 16, // braises soulevées par le tir
+    path: 'beam',
+  },
+  // Michael Myers (Halloween) : une PLUIE DE COUTEAUX de cuisine tombe du ciel en tournoyant sur
+  // toute la largeur — son arme, en averse (path `coins`, comme les clés du Seigneur des clés).
+  // Une seule image : la variété vient du sens/vitesse de rotation et de la vitesse de chute.
+  'custom-michael-meyers': {
+    images: ['/animations/couteau_meyers.png'],
+    heightPct: 9, // un couteau est plus grand qu'une pièce : la pluie doit rester lisible
+    durationSec: 9, // couvre l'étalement des chutes (délais + durée de chute)
+    count: 26, // moins dense qu'une pluie de pièces (les lames sont grandes)
+    path: 'coins',
+  },
   // Le Seigneur des clés : une PLUIE DE CLÉS colorées (6 couleurs) tombe du ciel en tournoyant,
   // sur toute la largeur — comme la pluie de pièces de Prince Jean (path `coins`).
   'custom-seigneur-cles': {
@@ -586,6 +660,34 @@ export const CUSTOM_VILLAIN_ANIMATION: Record<string, VillainAnimation | Villain
     count: 60,
     path: 'dark-embers',
   },
+  // Grand Councilwoman (Lilo & Stitch) : le VAISSEAU rouge de Stitch traverse le HAUT de l'écran en
+  // dérivant — même trajectoire que Kronk chez Yzma / le dirigeable de Ratigan (`water-cross`), donc
+  // dans le sens du camp : joueur de gauche à droite, adversaire de droite à gauche. L'avant du
+  // vaisseau pointe à GAUCHE au naturel (`facesLeft`) → il est miroité pour regarder dans son sens
+  // de marche. Pas d'`onFoot`/`gait` : il DÉRIVE (léger flottement, comme le dirigeable).
+  'custom-stitch': {
+    image: '/animations/vaisseau_stitch.png',
+    heightPct: 11, // taille du vaisseau (image 360×213)
+    topPct: 4, // hauteur de la traversée
+    durationSec: 13, // dérive tranquille
+    facesLeft: true,
+    path: 'water-cross',
+    thrust: true, // ses deux réacteurs crachent un jet bleu qui vacille, avec une traînée
+  },
+  // Dio (JoJo's Bizarre Adventure) : les SYMBOLES DE MENACE (« ゴゴゴゴ », animation) APPARAISSENT EN
+  // BAS de l'écran et MONTENT jusqu'en haut, un peu partout sur la largeur, en ondulant (path `rise`,
+  // celui des bulles d'Ursula, en `count` copies de la même image) — la menace qui monte avant qu'il
+  // agisse. Le gif source (`assets/animations/dio/`) avait un FOND GRIS opaque : il est servi en WEBP
+  // ANIMÉ détouré (seul format à la fois animé et à alpha réel — le gif est limité à 1 bit de
+  // transparence, donc à des bords en escalier).
+  'custom-dio': {
+    image: '/animations/menacing-jojo.webp',
+    heightPct: 11, // taille de base d'un symbole (variée ×0,45..1,55 par le rendu ; source 220×220)
+    count: 22, // ils envahissent tout l'écran (une même image → décodée une seule fois)
+    riseSec: 11, // montée LENTE et pesante (11 à ~21 s selon le symbole)
+    durationSec: 27, // couvre les départs échelonnés (jusqu'à 5 s) + la montée la plus lente (~21 s)
+    path: 'rise',
+  },
   // Le Flagelleur Mental (Stranger Things) : le PASSAGE vers le Monde à l'Envers — l'écran se craquelle
   // en fissures noires, puis des traits rouges surgissent le long des fissures (path `portal-cracks`).
   'custom-flagelleur-mental': {
@@ -602,6 +704,27 @@ export const CUSTOM_VILLAIN_ANIMATION: Record<string, VillainAnimation | Villain
     durationSec: 15, // dérive tranquille sur les rails
     facesLeft: true,
     path: 'water-cross',
+  },
+  // Gul'dan (Warcraft) : la PLUIE DE GANGRÉNÉ — une averse de météores fel s'abat en diagonale sur
+  // tout l'écran (penchés dans le sens du camp) et crève en flaques de lumière en bas. 100 % CSS.
+  'custom-gul-dan': {
+    count: 38,
+    durationSec: 7, // couvre l'étalement des chutes + le dernier impact
+    path: 'fel-rain',
+  },
+  // Isabella (The Promised Neverland) : les MATRICULES s'impriment PARTOUT sur l'écran, un à un,
+  // comme autant de coups de tampon — le numéro que chaque enfant porte tatoué sur la nuque, et qui
+  // dit ce qu'ils sont vraiment pour elle : du bétail numéroté (path `tattoos`, 100 % texte).
+  // Emma, Norman et Ray portent les numéros canoniques ; les autres sont de la même famille.
+  'custom-isabella': {
+    texts: [
+      '63194', '22194', '81194', '16194', '24194', '98718', '35204', '71592',
+      '52791', '40614', '19836', '67425', '28903', '84117',
+    ],
+    heightPct: 2.2, // taille de base d'un matricule (variée par matricule dans le composant)
+    count: 42, // densité : le calque est DERRIÈRE l'UI, une bonne moitié tombe sous les plateaux
+    durationSec: 11.5, // couvre les impressions échelonnées (≈ 7,4 s) + le dernier effacement (3,4 s)
+    path: 'tattoos',
   },
   // Kilaire (Galeem ☀️) UNIQUEMENT : KIRBY s'échappe sur son ÉTOILE VOLANTE (Warp Star) — l'unique
   // rescapé de la lumière de Galeem dans « La Lueur du Monde ». Traversée `cross` SELON LE CAMP :

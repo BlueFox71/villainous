@@ -180,6 +180,35 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     })
   })
 
+  // LA POUSSIÈRE (Thanos, path `ashes`) : des cendres naissent en bas de l'écran et S'ENVOLENT vers le
+  // haut, départs échelonnés sur la durée du passage, en dérivant latéralement (--dx) et en tournant
+  // sur elles-mêmes. Décidée une fois au montage (= un passage). Teintes GRIS CENDRE et BRUN terreux
+  // (deux familles tirées 50/50) : c'est de la poussière, pas des paillettes.
+  const [ashes] = useState<
+    { left: number; size: number; dur: number; delay: number; dx: number; spinDur: number; op: number; color: string }[]
+  >(() => {
+    if (path !== 'ashes') return []
+    const n = anim?.count ?? 200
+    const total = anim?.durationSec ?? 9
+    // De la POUSSIÈRE, pas des étincelles : gris cendreux et bruns terreux, jamais de couleur vive.
+    const greys = ['#b3a99c', '#948a7f', '#6f6760'] // cendre grise
+    const browns = ['#9c8467', '#7d6851', '#5c4c3b'] // poussière brune
+    return Array.from({ length: n }, () => {
+      const dur = 3.2 + Math.random() * 3.4 // s (montée : les plus lourdes traînent)
+      const fam = Math.random() < 0.5 ? greys : browns
+      return {
+        left: Math.random() * 100, // %
+        size: 0.2 + Math.random() * 0.55, // vh (éclat de cendre)
+        dur,
+        delay: Math.random() * Math.max(0, total - dur), // échelonné → toutes finissent avant le démontage
+        dx: (Math.random() - 0.5) * 22, // vw (le souffle les emporte de côté)
+        spinDur: 1.8 + Math.random() * 3, // s (elles tournoient en montant)
+        op: 0.35 + Math.random() * 0.5,
+        color: fam[Math.floor(Math.random() * fam.length)],
+      }
+    })
+  })
+
   // Pages (Slenderman) : positions tirées au hasard sur TOUT l'écran (avec marges),
   // une fois au montage. Rendues dans le calque de fond (même plan que le bateau),
   // réparties sur toute la surface.
@@ -195,6 +224,26 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     return anim.images.map(() => ({
       x: mx + Math.random() * (vw - 2 * mx),
       y: myTop + Math.random() * (vh - myTop - myBot),
+    }))
+  })
+
+  // Matricules (Isabella) : positions, inclinaisons, tailles et numéros tirés au hasard sur TOUT
+  // l'écran (avec marges), une fois au montage. Comme les pages de Slenderman, mais en TEXTE.
+  const [tattooItems] = useState<{ x: number; y: number; rot: number; size: number; text: string }[]>(() => {
+    if (path !== 'tattoos' || !anim?.texts?.length) return []
+    const texts = anim.texts
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const base = ((anim.heightPct ?? 2.2) / 100) * vh
+    const mx = 40 // marge latérale (un matricule est large : on le pose au centre)
+    const myTop = 60 // sous le header
+    const myBot = 70 // au-dessus de la barre du bas
+    return Array.from({ length: anim.count ?? 30 }, () => ({
+      x: mx + Math.random() * (vw - 2 * mx),
+      y: myTop + Math.random() * (vh - myTop - myBot),
+      rot: (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 11), // deg (tampon jamais droit)
+      size: base * (0.65 + Math.random() * 0.7), // px
+      text: texts[Math.floor(Math.random() * texts.length)],
     }))
   })
 
@@ -325,6 +374,22 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
   // Passage `portal-cracks` (Flagelleur Mental) : réseau de fissures figé au montage.
   const [portalCracks] = useState(() => (path === 'portal-cracks' ? buildPortalCracks() : []))
 
+  // Passage `beam` (Ultron) : hauteur du tir + braises soulevées, figées au montage (= un passage).
+  // La hauteur varie d'un tir à l'autre pour que le rayon ne balaie pas toujours la même ligne.
+  const [beamCfg] = useState(() => ({
+    // Dans la BANDE HAUTE (au-dessus des plateaux) : plus bas, le trait barrait les cartes en pleine
+    // partie. Un seul réglage à toucher pour le remonter/descendre.
+    top: 2 + Math.random() * 6, // % de la hauteur d'écran
+    embers: Array.from({ length: anim?.count ?? 16 }, () => ({
+      left: 6 + Math.random() * 88, // %
+      size: 0.25 + Math.random() * 0.5, // vh
+      rise: 6 + Math.random() * 16, // vh (hauteur de la montée)
+      dx: (Math.random() * 2 - 1) * 4, // vh (dérive latérale)
+      dur: 1.1 + Math.random() * 1.3, // s
+      delay: Math.random() * 0.7, // s (elles se lèvent au fil du souffle)
+    })),
+  }))
+
   // Montée (Ursula : bulles ; Hadès : âmes) : 18 à 30 éléments par défaut (ou `count`),
   // taille/colonne/vitesse/ondulation au hasard, figés au montage. `sides` les concentre
   // sur les deux marges. La montée est jouée en CSS (cf. bubbleRise).
@@ -334,19 +399,23 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
       sway: number; swayDur: number; swayDelay: number; op: number
     }[]
   >(() => {
-    if (path !== 'rise' || !anim?.images) return []
+    if (path !== 'rise' || !(anim?.images || anim?.image)) return []
     const base = anim.heightPct ?? 5
-    const imgs = anim.images
+    // Liste de variantes (une teinte tirée par élément), ou une seule image répétée
+    // (Dio : le même symbole de menace qui monte, en `count` exemplaires).
+    const imgs = anim.images ?? [anim.image as string]
     const n = anim.count ?? 18 + Math.floor(Math.random() * 13) // défaut 18..30 (sinon imposé)
     // Répartition : sur toute la largeur, ou concentrée sur les DEUX CÔTÉS (`sides`) en
     // laissant ~16 % au centre pour les plateaux — chaque âme tirée dans la marge G ou D.
     const sideLeft = () =>
       Math.random() < 0.5 ? 1 + Math.random() * 41 : 58 + Math.random() * 41
+    // Durée de base d'une montée (`riseSec`, défaut 5 s) ; chacun tire jusqu'à +90 % → vitesses variées.
+    const riseBase = anim.riseSec ?? 5
     return Array.from({ length: n }, () => ({
       img: imgs[Math.floor(Math.random() * imgs.length)], // teinte au hasard
       left: anim.sides ? sideLeft() : 2 + Math.random() * 96, // % de la largeur (point d'ancrage)
       size: base * (0.45 + Math.random() * 1.1), // vh (bulles de tailles variées)
-      dur: 5 + Math.random() * 4.5, // s (montée régulière, linéaire)
+      dur: riseBase * (1 + Math.random() * 0.9), // s (montée régulière, linéaire)
       delay: Math.random() * 5, // s (étalement du flux)
       sway: 2 + Math.random() * 4, // vw (amplitude d'ondulation, pendule ±)
       swayDur: 2.2 + Math.random() * 1.8, // s (période d'ondulation)
@@ -373,6 +442,28 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     }))
   })
 
+  // Braises ROUGES du sceau (path `sigil`) : elles montent depuis le bas du sceau et s'éteignent
+  // au-dessus, départs échelonnés sur la durée du passage. Tirées une fois au montage (= un passage).
+  const [sigilEmbers] = useState<
+    { left: number; size: number; dur: number; delay: number; rise: number; dx: number; op: number }[]
+  >(() => {
+    if (path !== 'sigil') return []
+    const n = anim?.count ?? 44
+    const total = anim?.durationSec ?? 7
+    return Array.from({ length: n }, () => {
+      const dur = 2 + Math.random() * 2.6 // s (montée d'une braise)
+      return {
+        left: 4 + Math.random() * 92, // % (sur la largeur du sceau)
+        size: 0.22 + Math.random() * 0.42, // vh
+        dur,
+        delay: Math.random() * Math.max(0, total - dur), // échelonné → toutes finissent avant le démontage
+        rise: 30 + Math.random() * 40, // vh (elles s'éteignent bien au-dessus du sceau)
+        dx: (Math.random() - 0.5) * 12, // vw (dérive latérale)
+        op: 0.6 + Math.random() * 0.4,
+      }
+    })
+  })
+
   // Étincelles / braises ROUGE & VIOLET (Sumbra, path `dark-embers`) : petites lucioles qui MONTENT en
   // scintillant un peu partout pendant que l'écran s'assombrit, départs échelonnés sur la durée du passage.
   // Décidées une fois au montage (= un passage). Teintes rouges + violettes (Dharkon).
@@ -397,6 +488,38 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
         twDelay: -(Math.random() * 1.5), // s (déphasage)
         color: colors[Math.floor(Math.random() * colors.length)],
         op: 0.6 + Math.random() * 0.4,
+      }
+    })
+  })
+
+  // PLUIE DE GANGRÉNÉ (Gul'dan, path `fel-rain`) : des météores fel tombent en diagonale, TOUS inclinés
+  // dans le même sens (celui du camp). Chacun connaît sa dérive → on en déduit son inclinaison exacte et
+  // le point de chute, où un impact s'allume juste à son arrivée. Décidé une fois au montage (= un passage).
+  const [felRain] = useState<
+    { left: number; dx: number; len: number; tilt: number; dur: number; delay: number; op: number; violet: boolean }[]
+  >(() => {
+    if (path !== 'fel-rain') return []
+    const n = anim?.count ?? 22
+    const total = anim?.durationSec ?? 7
+    const W = typeof window !== 'undefined' ? window.innerWidth : 1920
+    const H = typeof window !== 'undefined' ? window.innerHeight : 1080
+    const dir = isPlayer ? 1 : -1 // les météores penchent dans le sens du camp
+    const FALL_VH = 130 // du dessus de l'écran jusqu'en dessous
+    return Array.from({ length: n }, () => {
+      const dx = dir * (14 + Math.random() * 12) // vw (dérive latérale sur toute la chute)
+      const dur = 0.9 + Math.random() * 0.7 // s (une chute)
+      // Inclinaison du trait : il doit pointer dans la direction de la chute. Le trait est vertical au
+      // naturel (tête en bas) → on le tourne de l'angle entre la verticale et la trajectoire réelle.
+      const tilt = -(Math.atan2((dx / 100) * W, (FALL_VH / 100) * H) * 180) / Math.PI
+      return {
+        left: -10 + Math.random() * 120, // % (départ, large : la dérive en sort certains)
+        dx,
+        len: 9 + Math.random() * 11, // vh (longueur de la queue)
+        tilt,
+        dur,
+        delay: Math.random() * Math.max(0, total - dur - 0.5), // échelonné (tout finit avant le démontage)
+        op: 0.65 + Math.random() * 0.35,
+        violet: Math.random() < 0.22, // quelques météores du Vide
       }
     })
   })
@@ -667,6 +790,32 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
             style={{ left: `${p.x}px`, top: `${p.y}px`, height: `${heightPct}vh`, animationDelay: `${i * 0.3}s` }}
             draggable={false}
           />
+        ))}
+      </div>
+    )
+  }
+
+  if (path === 'tattoos') {
+    // Les matricules s'impriment un à un (décalés de 0,18 s), chacun tamponné puis effacé —
+    // l'écran se couvre de numéros le temps du passage. Rendus dans le calque de FOND.
+    return (
+      <div className="page-layer pointer-events-none absolute inset-0" aria-hidden>
+        {tattooItems.map((t, i) => (
+          <span
+            key={i}
+            className="tattoo-note"
+            style={
+              {
+                left: `${t.x}px`,
+                top: `${t.y}px`,
+                fontSize: `${t.size}px`,
+                animationDelay: `${i * 0.18}s`,
+                '--tt-rot': `${t.rot}deg`,
+              } as CSSProperties
+            }
+          >
+            {t.text}
+          </span>
         ))}
       </div>
     )
@@ -949,6 +1098,113 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     )
   }
 
+  if (path === 'ashes') {
+    // LA POUSSIÈRE plein écran (comme `stardust`, mais elle MONTE) : chaque cendre est une enveloppe
+    // `.ashes-rise` (montée du bas vers le haut + dérive --dx + fondu) contenant un éclat `.ashes-mote`
+    // qui TOURNOIE. Calque fixe au-dessus de la scène, pointer-events: none.
+    return createPortal(
+      <div className="ashes-layer pointer-events-none fixed inset-0 overflow-hidden" style={{ zIndex: 40 }} aria-hidden>
+        {ashes.map((a, i) => (
+          <span
+            key={`ash-${i}`}
+            className="ashes-rise"
+            style={{ left: `${a.left}%`, animationDuration: `${a.dur}s`, animationDelay: `${a.delay}s`, '--dx': `${a.dx}vw` } as CSSProperties}
+          >
+            <span
+              className="ashes-mote"
+              style={{
+                width: `${a.size}vh`,
+                height: `${a.size}vh`,
+                // Grain de poussière : cœur plein, bord qui s'éteint. Aucun halo — elle ne brille pas.
+                background: `radial-gradient(circle, ${a.color} 0%, ${a.color} 52%, rgba(0, 0, 0, 0) 100%)`,
+                opacity: a.op,
+                animationDuration: `${a.spinDur}s`,
+              }}
+            />
+          </span>
+        ))}
+      </div>,
+      document.body,
+    )
+  }
+
+  if (path === 'fel-rain') {
+    // PLUIE DE GANGRÉNÉ (Gul'dan) : chaque météore est une enveloppe qui descend en diagonale
+    // (translate) contenant un trait INCLINÉ dans l'axe de la chute (`--tilt`, calculé au montage à
+    // partir des vraies dimensions de l'écran) ; un impact s'allume en bas au point de chute.
+    return createPortal(
+      <div className="fel-rain-layer pointer-events-none fixed inset-0 overflow-hidden" style={{ zIndex: 40 }} aria-hidden>
+        {felRain.map((m, i) => (
+          <span
+            key={`flr-${i}`}
+            className="fel-rain-fall"
+            style={{
+              left: `${m.left}%`,
+              animationDuration: `${m.dur}s`,
+              animationDelay: `${m.delay}s`,
+              '--dx': `${m.dx}vw`,
+              '--mop': m.op,
+            } as CSSProperties}
+          >
+            <span
+              className={`fel-rain-streak${m.violet ? ' fel-rain-streak--void' : ''}`}
+              style={{ height: `${m.len}vh`, transform: `rotate(${m.tilt}deg)` }}
+            />
+          </span>
+        ))}
+        {felRain.map((m, i) => (
+          <span
+            key={`fli-${i}`}
+            className={`fel-rain-impact${m.violet ? ' fel-rain-impact--void' : ''}`}
+            style={{
+              left: `${m.left + m.dx}%`,
+              width: `${m.len * 0.9}vh`,
+              height: `${m.len * 0.3}vh`,
+              animationDelay: `${m.delay + m.dur * 0.92}s`,
+            }}
+          />
+        ))}
+      </div>,
+      document.body,
+    )
+  }
+
+  if (path === 'sigil') {
+    // PASSAGE « sceau » (Pyramid Head : le Halo du Soleil). Rendu DANS LE PLAN DE FOND (z -1, comme
+    // `disco` / `portal-cracks`) → DERRIÈRE les plateaux et les cartes. Le sceau étant centré sur
+    // l'ÉCRAN, son cœur tombe sur la colonne centrale (le Journal) dont le panneau est translucide :
+    // il s'y voit franchement, et se devine derrière les plateaux sur les côtés.
+    // Dimensionné par sa HAUTEUR (`heightPct`), la largeur suit le ratio natif.
+    const h = anim?.heightPct ?? 62
+    return (
+      <div className="pass-sigil-layer pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+        <div className="pass-sigil" style={{ height: `${h}vh`, animationDuration: `${durationSec}s` }}>
+          {/* Halo rouge derrière le sceau : il respire (le sceau « chauffe »). */}
+          <div className="pass-sigil-glow" />
+          {/* Le trait du sceau : il arrive en grandissant puis rougeoie en continu. */}
+          <div className="pass-sigil-mark" style={{ backgroundImage: `url(${anim?.image ?? ''})` }} />
+          {/* Braises qui s'échappent de sa base et montent en le traversant. */}
+          {sigilEmbers.map((e, i) => (
+            <span
+              key={i}
+              className="pass-sigil-ember"
+              style={{
+                left: `${e.left}%`,
+                width: `${e.size}vh`,
+                height: `${e.size}vh`,
+                animationDuration: `${e.dur}s`,
+                animationDelay: `${e.delay}s`,
+                '--rise': `${e.rise}vh`,
+                '--dx': `${e.dx}vw`,
+                '--eop': e.op,
+              } as CSSProperties}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   if (path === 'dark-embers') {
     // Ambiance « Ténèbres » de Sumbra. Le VOILE sombre violacé (fondu d'entrée → maintien → sortie) est
     // rendu DANS LE PLAN DE FOND (z -1, comme `disco`) → DERRIÈRE le plateau/les cartes : seul l'ARRIÈRE-PLAN
@@ -1003,6 +1259,50 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
           style={{ animationDuration: `${durationSec}s`, '--c1': discoColors[0], '--c2': discoColors[1 % discoColors.length], '--c3': discoColors[2 % discoColors.length] } as CSSProperties}
         />
       </div>
+    )
+  }
+
+  if (path === 'beam') {
+    // LE RAYON (Ultron), rendu AU-DESSUS de la scène (portail fixe, comme `stardust`) : il est bref
+    // et fin — pas de voile plein écran, donc il ne masque pas la partie. Le tir part du côté du
+    // camp (joueur → de la gauche, adversaire → de la droite), ce que porte `--dir` : le trait se
+    // déploie depuis ce bord (`transform-origin`) et la charge s'y allume.
+    const fromLeft = isPlayer
+    return createPortal(
+      <div
+        className="ub-layer pointer-events-none fixed inset-0 overflow-hidden"
+        style={{ zIndex: 40, '--dur': `${durationSec}s`, top: 0 } as CSSProperties}
+        aria-hidden
+      >
+        <div className="ub-line" style={{ top: `${beamCfg.top}%`, '--origin': fromLeft ? '0%' : '100%' } as CSSProperties}>
+          {/* L'ONDE DE CHOC : elle s'écarte de part et d'autre du trait (rendue en premier → dessous). */}
+          <span className="ub-wave" />
+          {/* Le TRAIT : cœur blanc surchauffé, halo rouge, déployé depuis le bord de tir. */}
+          <span className="ub-bolt" />
+          {/* La CHARGE puis le FLASH de bouche, au bord d'où part le rayon. */}
+          <span className={`ub-muzzle${fromLeft ? '' : ' ub-muzzle--right'}`} />
+        </div>
+        {/* Les BRAISES soulevées par le souffle, qui montent depuis la ligne de tir en s'éteignant. */}
+        {beamCfg.embers.map((e, i) => (
+          <span
+            key={i}
+            className="ub-ember"
+            style={
+              {
+                left: `${e.left}%`,
+                top: `${beamCfg.top}%`,
+                width: `${e.size}vh`,
+                height: `${e.size}vh`,
+                animationDuration: `${e.dur}s`,
+                animationDelay: `${0.9 + e.delay}s`,
+                '--rise': `${e.rise}vh`,
+                '--dx': `${e.dx}vh`,
+              } as CSSProperties
+            }
+          />
+        ))}
+      </div>,
+      document.body,
     )
   }
 
@@ -1206,6 +1506,17 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
             // Démarche posée (filles de Trémaine) : wrapper = léger rebond + balancement (un peu de vibration).
             <span className="water-step">
               <img src={anim.image} alt="" className="h-full w-auto select-none" style={imgStyle} draggable={false} />
+            </span>
+          ) : anim.thrust ? (
+            // Dérive AVEC TUYÈRES (vaisseau de Grand Councilwoman) : le MIROIR du sens de marche passe
+            // sur un wrapper qui contient l'image ET les jets → ceux-ci restent toujours à la POUPE.
+            <span className="water-float">
+              <span className="prop-thrust-wrap" style={imgStyle}>
+                <img src={anim.image} alt="" className="h-full w-auto select-none" draggable={false} />
+                <span className="prop-thrust prop-thrust--up" />
+                <span className="prop-thrust prop-thrust--down" />
+                <span className="prop-thrust-trail" />
+              </span>
             </span>
           ) : (
             // Dérive simple (ex. dirigeable de Ratigan) : wrapper = léger flottement vertical (`water-float`).
@@ -1484,7 +1795,7 @@ export function BackgroundAnimation({
   // (chaque animation d'un vilain a sa propre file d'images).
   const imageQueues = useRef<Record<string, string[]>>({})
   const pickImage = (villain: VillainKey, animIdx: number, a: VillainAnimation): string => {
-    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'paws' || a.path === 'petals' || a.path === 'smoke-field' || a.path === 'overgrowth' || a.path === 'stardust' || a.path === 'disco' || a.path === 'portal-cracks') return '' // pas d'image unique ici
+    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'paws' || a.path === 'petals' || a.path === 'smoke-field' || a.path === 'overgrowth' || a.path === 'stardust' || a.path === 'disco' || a.path === 'portal-cracks' || a.path === 'tattoos') return '' // pas d'image unique ici
     if (!a.images || a.images.length === 0) return a.image ?? ''
     const key = `${villain}#${animIdx}`
     const q = imageQueues.current

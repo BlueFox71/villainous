@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties } from 'react'
-import { villainDecor, UNDERWATER_ORB_IMAGES, type VillainDecor as VillainDecorData } from '../villainDecor'
+import { villainDecor, UNDERWATER_ORB_IMAGES, TITAN_STONES, TITAN_GAUNTLET, type VillainDecor as VillainDecorData } from '../villainDecor'
 import type { VillainKey } from '../store/gameStore'
 import { onSurprise } from '../surpriseBus'
 import { setVillainColorOverride } from '../villainColorState'
@@ -26,11 +26,26 @@ function useSurpriseSub(fireRef: React.MutableRefObject<() => void>) {
 const GRAIN_URL =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")"
 
+// SURPRISE « LA PELLICULE CASSE » (Pat Hibulaire) : l'accident de projection, en trois temps.
+// 1) LE CADRE DÉCROCHE — l'image saute et la barre noire d'interimage traverse l'écran de bas en
+//    haut, de plus en plus vite (le projecteur a perdu la boucle). 2) LA BRÛLURE — une tache
+//    incandescente s'ouvre et MANGE l'image en s'étalant, jusqu'au blanc. 3) ON REMBOBINE —
+//    l'amorce défile, le compte à rebours du projecteur balaie son cercle (3-2-1), flash, et la
+//    pellicule repart. 100 % CSS, aucun asset. Les bornes ci-dessous doivent rester EN PHASE avec
+//    la timeline CSS (keyframes `film*`, index.css).
+const FILM_BREAK_TEST = false
+const FILM_BREAK_MS = 12_500 // décrochage (3,4 s) + brûlure (3,2 s) + blanc (1 s) + amorce (3,6 s) + reprise (1,9 s)
+const FILM_BREAK_GAP_MIN_MS = FILM_BREAK_TEST ? 16_000 : 150_000 // 2 min 30
+const FILM_BREAK_GAP_MAX_MS = FILM_BREAK_TEST ? 20_000 : 260_000 // 4 min 20
+
 /** Décor « vieille pellicule » : grain + scintillement + rayures + poussières +
  *  vignette sépia + perforations latérales. Tous les paramètres aléatoires sont
  *  figés une fois au montage (positions/durées/teintes), l'animation est jouée en
- *  CSS (cf. `index.css`, section « Décor permanent : pellicule de cinéma »). */
+ *  CSS (cf. `index.css`, section « Décor permanent : pellicule de cinéma »).
+ *  Surprise : « la pellicule casse » (cf. ci-dessus). */
 function FilmDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Rayures verticales : left / épaisseur / durée du cycle / déphasage / amplitude
   // du tremblement / teinte (la plupart sombres, quelques-unes claires sur le fond
   // sombre), tirés une fois au montage.
@@ -55,8 +70,38 @@ function FilmDecor() {
       delay: -(Math.random() * 11), // s
     })),
   )
+  // SURPRISE : `broken` porte le point d'amorce de la brûlure (elle ne perce jamais au même
+  // endroit) + un compteur qui sert de clé React (rejoue les animations). `null` = tout va bien.
+  const [broken, setBroken] = useState<{ run: number; x: number; y: number } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let run = 0
+    const fire = () => {
+      // Le point d'amorce reste dans la BANDE BASSE : le plateau, opaque, masque le centre de la
+      // colonne — une brûlure qui perce derrière lui ne se verrait qu'une fois déjà étalée.
+      setBroken({ run: ++run, x: 22 + Math.random() * 56, y: 60 + Math.random() * 16 })
+      clear = setTimeout(() => setBroken(null), FILM_BREAK_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(FILM_BREAK_GAP_MIN_MS + Math.random() * (FILM_BREAK_GAP_MAX_MS - FILM_BREAK_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(FILM_BREAK_TEST ? 3000 : 80_000 + Math.random() * 40_000) // 1re casse : 1 min 20 à 2 min
+    // MODE TEST : casse la pellicule à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
   return (
-    <div className="film-decor" aria-hidden>
+    <div className={`film-decor${broken ? ' is-breaking' : ''}`} aria-hidden>
+      {/* LA PELLICULE elle-même : tout ce qui saute et décroche quand elle casse. */}
+      <div className="film-world">
       {/* Grain argentique animé. */}
       <div className="film-grain" style={{ backgroundImage: GRAIN_URL }} />
       {/* Scintillement de luminosité (projecteur instable). */}
@@ -94,6 +139,29 @@ function FilmDecor() {
           donne l'impression que la pellicule tourne dans le projecteur. */}
       <div className="film-perforations film-perforations--left" />
       <div className="film-perforations film-perforations--right" />
+      </div>
+      {/* SURPRISE « LA PELLICULE CASSE ». */}
+      {broken && (
+        <div className="film-break" key={broken.run}>
+          {/* 1) La barre noire d'INTERIMAGE remonte l'écran, de plus en plus vite. */}
+          <span className="film-roll-bar" />
+          {/* 2) La BRÛLURE perce l'image et l'étale jusqu'au blanc. */}
+          <span className="film-burn" style={{ left: `${broken.x}%`, top: `${broken.y}%` }} />
+          <span className="film-white" />
+          {/* 3) L'AMORCE et son compte à rebours (cercle + aiguille qui balaie). */}
+          <div className="film-leader">
+            <span className="film-leader-grain" style={{ backgroundImage: GRAIN_URL }} />
+            <span className="film-leader-ring" />
+            <span className="film-leader-cross" />
+            <span className="film-leader-sweep" />
+            {[3, 2, 1].map((n, i) => (
+              <span key={n} className="film-leader-num" style={{ animationDelay: `${7.6 + i}s` }}>
+                {n}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -109,7 +177,41 @@ const SAND_TONES = ['#e8c98a', '#d9b06c', '#c89a55', '#f0dca6', '#bf8f4d']
 // Profil (clip-path) du tas de sable : triangle net (pic au centre, pentes droites).
 const SAND_PILE_CLIP = 'polygon(50% 0, 100% 9%, 100% 100%, 0 100%, 0 9%)'
 
+// SURPRISE « LA TEMPÊTE DE SABLE ». Le vent se lève, le sablier ploie sous les bourrasques, puis la
+// tempête DÉFERLE : des nappes de sable filent en travers de la colonne, des bourrasques la balaient,
+// une dune monte du bas et la visibilité tombe presque à zéro — avant que tout se dégage. 100 % CSS.
+// À GARDER en phase avec les keyframes `ss*` (index.css).
+const SAND_STORM_TEST = false
+const SAND_STORM_MS = 13_000 // le vent se lève (2,5 s) + déferlement (2,5 s) + pic (4 s) + ça se dégage (4 s)
+const SAND_STORM_GAP_MIN_MS = SAND_STORM_TEST ? 9000 : 150_000 // 2 min 30
+const SAND_STORM_GAP_MAX_MS = SAND_STORM_TEST ? 15_000 : 260_000 // 4 min 20
+// Grains EN VOL : de fines traînées qui filent en travers de l'écran (c'est du vent, pas une
+// chute). Volontairement COURTES, floues et discrètes — le sable soufflé, c'est la turbulence des
+// nappes ci-dessous qui le porte ; ces grains ne sont qu'un détail de premier plan. Trop longs ou
+// trop nets, ils se lisent comme des « traits » posés sur l'image.
+const SAND_STORM_GRAINS = 90
+// Les NAPPES de sable soufflé. Surtout PAS un motif régulier (des bandes se lisent comme des
+// rayures géométriques) : on prend la même TURBULENCE SVG que les caustiques de la grotte, ÉTIRÉE
+// à l'horizontale (`w` ≫ `h`) → le bruit s'allonge en voiles de sable. Chaque nappe a sa
+// fréquence, sa graine, sa taille de tuile et sa vitesse ; le défilement parcourt EXACTEMENT une
+// largeur de tuile, donc la boucle est invisible.
+const SAND_STORM_NOISE = (freq: string, seed: number, cut: number) =>
+  `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='${freq}' numOctaves='3' seed='${seed}' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.96 0 0 0 0 0.8 0 0 0 0 0.52 1.4 1.4 1.4 0 -${cut}'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E")`
+const SAND_STORM_SHEETS = [
+  { rot: -6, freq: '0.9 0.9', seed: 3, cut: 1.5, w: 120, h: 30, dur: 1.1, op: 0.5 },
+  { rot: -10, freq: '1.4 1.1', seed: 8, cut: 1.68, w: 80, h: 20, dur: 0.75, op: 0.36 },
+  { rot: -3, freq: '0.6 0.7', seed: 14, cut: 1.34, w: 170, h: 46, dur: 1.8, op: 0.3 },
+]
+// Bourrasques : de grosses bouffées floues qui traversent la colonne, décalées dans le temps.
+const SAND_STORM_GUSTS = [
+  { top: 12, delay: 2.4, dur: 4.6, h: 26 },
+  { top: 46, delay: 4.1, dur: 5.2, h: 34 },
+  { top: 70, delay: 6.2, dur: 4.2, h: 22 },
+]
+
 function SandDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Grains FINS et denses formant un RIDEAU RECTANGULAIRE : répartis uniformément sur
   // une bande verticale centrée et tombant tout droit (aucune dérive) → largeur
   // constante du haut au bas. + quelques grains ÉPARS sur toute la largeur (hors du
@@ -137,29 +239,128 @@ function SandDecor() {
       tone: SAND_TONES[i % SAND_TONES.length],
     })),
   ])
+  // Grains EN VOL de la tempête : de fines traînées horizontales, longueurs/vitesses/hauteurs
+  // variées, qui partent au fil de la séquence (jamais toutes ensemble) et dérivent un peu en
+  // montant ou en descendant (`drop`) — le vent n'est pas rectiligne.
+  const [stormGrains] = useState(() =>
+    Array.from({ length: SAND_STORM_GRAINS }, (_, i) => ({
+      top: Math.random() * 104 - 2, // %
+      len: 1.2 + Math.random() * 4.5, // vh (courte : un grain qui passe, pas un trait tiré)
+      thick: 0.08 + Math.random() * 0.2, // vh
+      dur: 0.5 + Math.random() * 1.2, // s (c'est du vent : ça file)
+      delay: 1.4 + Math.random() * 8.6, // s (réparti sur toute la tempête)
+      drop: (Math.random() - 0.5) * 14, // vh (dérive verticale sur le trajet)
+      op: 0.18 + Math.random() * 0.4, // discrète : elle ponctue la nappe, elle ne la dessine pas
+      tone: SAND_TONES[i % SAND_TONES.length],
+    })),
+  )
+  // SURPRISE : `storm` porte un compteur qui sert de clé React (rejoue les animations). `null` = le
+  // sablier s'écoule normalement.
+  const [storm, setStorm] = useState<{ run: number } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let run = 0
+    const fire = () => {
+      setStorm({ run: ++run })
+      clear = setTimeout(() => setStorm(null), SAND_STORM_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(SAND_STORM_GAP_MIN_MS + Math.random() * (SAND_STORM_GAP_MAX_MS - SAND_STORM_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(SAND_STORM_TEST ? 3000 : 70_000 + Math.random() * 45_000) // 1re tempête : 1 min 10 à 1 min 55
+    // MODE TEST : lève le vent à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
   return (
-    <div className="sand-decor" aria-hidden>
-      {/* Grains fins qui tombent en s'évasant. */}
-      <div className="sand-stream">
-        {grains.map((g, i) => (
-          <span
-            key={i}
-            className="sand-grain"
-            style={{
-              left: `${g.left}%`,
-              width: `${g.w}px`,
-              height: `${g.h}px`,
-              background: g.tone,
-              opacity: g.op,
-              animationDuration: `${g.dur}s`,
-              animationDelay: `${g.delay}s`,
-            }}
-          />
-        ))}
+    <div className={`sand-decor${storm ? ' is-storm' : ''}`} aria-hidden>
+      {/* LE SABLIER : tout ce qui PLOIE sous le vent et se désature pendant la tempête. */}
+      <div className="sand-world">
+        {/* Grains fins qui tombent en s'évasant. */}
+        <div className="sand-stream">
+          {grains.map((g, i) => (
+            <span
+              key={i}
+              className="sand-grain"
+              style={{
+                left: `${g.left}%`,
+                width: `${g.w}px`,
+                height: `${g.h}px`,
+                background: g.tone,
+                opacity: g.op,
+                animationDuration: `${g.dur}s`,
+                animationDelay: `${g.delay}s`,
+              }}
+            />
+          ))}
+        </div>
+        {/* Niveau de sable : se remplit (tas) puis se vide → boucle. Silhouette (apex
+            arrondi + pentes ondulées) posée en clip-path inline. */}
+        <div className="sand-fill" style={{ clipPath: SAND_PILE_CLIP }} />
       </div>
-      {/* Niveau de sable : se remplit (tas) puis se vide → boucle. Silhouette (apex
-          arrondi + pentes ondulées) posée en clip-path inline. */}
-      <div className="sand-fill" style={{ clipPath: SAND_PILE_CLIP }} />
+      {/* SURPRISE « LA TEMPÊTE DE SABLE ». */}
+      {storm && (
+        <div className="sand-storm" key={storm.run}>
+          {/* Le voile ocre qui déferle et fait tomber la visibilité. */}
+          <span className="ss-veil" />
+          {/* Les trois nappes de sable soufflé (turbulence étirée). L'enveloppe porte l'inclinaison
+              et le fondu d'entrée/sortie ; l'enfant porte la texture, son opacité propre et son
+              défilement — d'exactement une largeur de tuile (`--w`), donc sans raccord visible. */}
+          {SAND_STORM_SHEETS.map((s, i) => (
+            <span key={`ss-sheet-${i}`} className="ss-sheet" style={{ transform: `rotate(${s.rot}deg)` }}>
+              <span
+                className="ss-sheet-inner"
+                style={
+                  {
+                    backgroundImage: SAND_STORM_NOISE(s.freq, s.seed, s.cut),
+                    backgroundSize: `${s.w}vh ${s.h}vh`,
+                    opacity: s.op,
+                    animationDuration: `${s.dur}s`,
+                    '--w': `${s.w}vh`,
+                  } as CSSProperties
+                }
+              />
+            </span>
+          ))}
+          {/* Les bourrasques : de grosses bouffées floues qui traversent la colonne. */}
+          {SAND_STORM_GUSTS.map((g, i) => (
+            <span
+              key={`ss-gust-${i}`}
+              className="ss-gust"
+              style={{ top: `${g.top}%`, height: `${g.h}vh`, animationDuration: `${g.dur}s`, animationDelay: `${g.delay}s` }}
+            />
+          ))}
+          {/* Les grains en vol, qui filent en travers de l'écran. */}
+          {stormGrains.map((g, i) => (
+            <span
+              key={`ss-fly-${i}`}
+              className="ss-fly"
+              style={
+                {
+                  top: `${g.top}%`,
+                  width: `${g.len}vh`,
+                  height: `${g.thick}vh`,
+                  background: `linear-gradient(to right, rgba(0, 0, 0, 0), ${g.tone})`,
+                  opacity: g.op,
+                  animationDuration: `${g.dur}s`,
+                  animationDelay: `${g.delay}s`,
+                  '--drop': `${g.drop}vh`,
+                } as CSSProperties
+              }
+            />
+          ))}
+          {/* La DUNE que le vent pousse en bas de la colonne, puis qui retombe. */}
+          <span className="ss-dune" />
+        </div>
+      )}
     </div>
   )
 }
@@ -168,7 +369,61 @@ function SandDecor() {
  *  profondeur — les étoiles proches sont plus grosses, plus rapides et laissent une
  *  traînée → on file dans l'espace comme à travers le hublot d'une fusée. Étoiles
  *  tirées une fois au montage, défilement joué en CSS (cf. `index.css`). */
+// SURPRISE « SABOTAGE — FUSION DU RÉACTEUR » (L'Imposteur) : l'alerte rouge s'empare de la colonne.
+// Le champ d'étoiles VIRE AU ROUGE (voile `multiply` : les étoiles blanches rougissent sans éclairer
+// le noir), une sirène muette pulse, des BANDES DE DANGER hachurées défilent en haut et en bas, et le
+// décor TREMBLE de plus en plus fort pendant que le panneau d'alerte égrène son COMPTE À REBOURS (une
+// seconde par seconde, en vrai). À zéro : FLASH blanc, puis « SABOTAGE RÉPARÉ » et tout revient à la
+// normale. 100 % CSS + texte, aucun asset (keyframes `sab*`, cf. index.css). Les bornes ci-dessous
+// doivent rester EN PHASE avec la timeline CSS. Flag de test → cadence rapprochée pour régler.
+const SPACE_SABOTAGE_TEST = false
+const SPACE_SABOTAGE_START = 8 // secondes affichées au départ du compte à rebours
+const SPACE_SABOTAGE_MS = 11_000 // 8 s de décompte + flash + ~3 s de « réparé »
+const SPACE_SABOTAGE_GAP_MIN_MS = SPACE_SABOTAGE_TEST ? 6000 : 75_000 // 1 min 15 (c'est une SURPRISE : c'est rare)
+const SPACE_SABOTAGE_GAP_MAX_MS = SPACE_SABOTAGE_TEST ? 11_000 : 150_000 // 2 min 30
+
+/** Décor « espace » : champ d'étoiles défilant vers la droite, avec profondeur (les étoiles
+ *  proches sont plus grosses, plus rapides et plus brillantes). Étoiles tirées une fois au
+ *  montage. SURPRISE : « sabotage — fusion du réacteur » (cf. ci-dessus). */
 function SpaceDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  // SURPRISE « sabotage » : on monte le calque `.space-sabotage` le temps de la séquence, avec un
+  // compteur de passage en clé React → les animations CSS repartent de zéro à chaque déclenchement.
+  // Seul le DÉCOMPTE est piloté en JS (un cran par seconde) ; le reste est joué en CSS.
+  const [sabRun, setSabRun] = useState<number | null>(null)
+  const [count, setCount] = useState(SPACE_SABOTAGE_START)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let tick: ReturnType<typeof setInterval>
+    let run = 0
+    const fire = () => {
+      setSabRun(++run)
+      setCount(SPACE_SABOTAGE_START)
+      let left = SPACE_SABOTAGE_START
+      tick = setInterval(() => setCount(Math.max(0, --left)), 1000)
+      clear = setTimeout(() => {
+        clearInterval(tick)
+        setSabRun(null)
+      }, SPACE_SABOTAGE_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(SPACE_SABOTAGE_GAP_MIN_MS + Math.random() * (SPACE_SABOTAGE_GAP_MAX_MS - SPACE_SABOTAGE_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(SPACE_SABOTAGE_TEST ? 3000 : 45_000 + Math.random() * 30_000) // 1re alerte : 45 s à 1 min 15
+    // MODE TEST : déclenche le sabotage à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+      clearInterval(tick)
+    }
+  }, [])
   const [stars] = useState(() =>
     Array.from({ length: 80 }, () => {
       const depth = Math.random() // 0 = lointaine, 1 = proche
@@ -184,7 +439,7 @@ function SpaceDecor() {
     }),
   )
   return (
-    <div className="space-decor" aria-hidden>
+    <div className={`space-decor${sabRun !== null ? ' is-sabotage' : ''}`} aria-hidden>
       {stars.map((s, i) => (
         <span
           key={i}
@@ -199,6 +454,30 @@ function SpaceDecor() {
           }}
         />
       ))}
+      {/* SURPRISE « sabotage » : monté le temps de la séquence ; la clé React rejoue les
+          animations CSS à chaque passage. */}
+      {sabRun !== null && (
+        <div className="space-sabotage" key={sabRun}>
+          {/* Voile `multiply` : les étoiles blanches rougissent (le fond noir, lui, ne bouge pas). */}
+          <div className="sab-tint" />
+          {/* La sirène : une lueur rouge qui pulse depuis les bords. */}
+          <div className="sab-alarm" />
+          {/* Bandes de danger hachurées, en haut et en bas. */}
+          <div className="sab-stripes sab-stripes--top" />
+          <div className="sab-stripes sab-stripes--bottom" />
+          {/* Le panneau d'alerte : le décompte, puis « sabotage réparé ». */}
+          <div className="sab-panel">
+            <div className="sab-alert">
+              <span className="sab-label">⚠ ALERTE ⚠</span>
+              <span className="sab-title">Fusion du réacteur</span>
+              <span className="sab-count">{`0:0${count}`}</span>
+            </div>
+            <div className="sab-fixed">Sabotage réparé</div>
+          </div>
+          {/* Le flash de la fusion, à zéro. */}
+          <div className="sab-flash" />
+        </div>
+      )}
     </div>
   )
 }
@@ -696,12 +975,28 @@ function PotionBrew() {
   )
 }
 
+// SURPRISE « MIROIR, MON BEAU MIROIR » (Méchante Reine) : l'invocation du Miroir magique, en trois
+// temps. 1) L'INVOCATION — la fumée du décor s'aspire vers le centre en volutes, la lumière baisse et
+// un grand MIROIR ovale se rassemble (cadre doré en CSS, glace noire, filet lumineux qui court le long
+// du bord). 2) LES FLAMMES VERTES — un tourbillon vert monte dans la glace, puis le MASQUE se
+// matérialise au milieu des flammes et se tient en respirant (halo qui pulse, léger tremblement).
+// 3) RETOUR À LA FUMÉE — le masque se dissout vers le haut, le cadre s'assombrit et le miroir se
+// défait en volutes qui repartent dans le décor. Le seul asset est le MASQUE (`decor.mirrorMask`) :
+// cadre, glace, flammes et volutes sont en CSS. Séquence jouée en CSS (keyframes `qm*`, index.css) :
+// le calque est (dé)monté le temps de la surprise, sa clé React rejoue donc tout depuis le début à
+// chaque passage. Les bornes ci-dessous doivent rester EN PHASE avec la timeline CSS.
+const QUEEN_MIRROR_TEST = false
+const QUEEN_MIRROR_MS = 11_200 // invocation (1,8 s) + flammes (1,4 s) + masque tenu (3,6 s) + dissolution (2,4 s) + fumée (2 s)
+const QUEEN_MIRROR_GAP_MIN_MS = QUEEN_MIRROR_TEST ? 6000 : 150_000 // 2 min 30 (c'est une SURPRISE : c'est rare)
+const QUEEN_MIRROR_GAP_MAX_MS = QUEEN_MIRROR_TEST ? 11_000 : 270_000 // 4 min 30
+
 /** Décor « Méchante Reine » (Blanche-Neige) : la fumée violette de sorcellerie (vidéo `video`)
  *  SURMONTÉE de trois couches qui racontent la Reine — des BULLES de potion verte montent du fond
  *  (le chaudron ; réutilise l'enveloppe `.bubble-rise`/`.bubble-sway` d'Ursula), une fine POUSSIÈRE
  *  de sorcellerie violette monte en scintillant (réutilise les motes de Facilier, teintés violet),
  *  et une POTION mijote dans un verre (changement de couleurs → éclair → vaporisation → chute).
- *  Éléments tirés une fois au montage, animations en CSS (cf. index.css, section « Méchante Reine »). */
+ *  Éléments tirés une fois au montage, animations en CSS (cf. index.css, section « Méchante Reine »).
+ *  Surprise : « Miroir, mon beau miroir » (cf. ci-dessus). */
 function EvilQueenDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'evilQueen' }> }) {
   // Bulles de potion : montent du fond en ondulant (réutilise `.bubble-rise`/`.bubble-sway`),
   // dessinées en CSS (pas d'image) → la couleur vient de la classe `.queen-bubble--*` (vert /
@@ -757,8 +1052,50 @@ function EvilQueenDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'e
       }
     }),
   )
+  // SURPRISE « Miroir, mon beau miroir » : volutes de fumée qui convergent vers le miroir (puis en
+  // repartent à la fin) — angle autour du centre, distance de départ, taille et déphasage.
+  const [wisps] = useState(() =>
+    Array.from({ length: 12 }, (_, i) => ({
+      // Réparties tout autour du miroir (12 secteurs) avec un peu de jitter.
+      angle: (i / 12) * 360 + (Math.random() - 0.5) * 22, // deg
+      dist: 11 + Math.random() * 9, // vh (distance de départ au centre)
+      size: 3 + Math.random() * 3.5, // vh
+      delay: Math.random() * 0.9, // s (elles n'arrivent pas toutes ensemble)
+      spin: (Math.random() < 0.5 ? -1 : 1) * (30 + Math.random() * 70), // deg (elles s'enroulent)
+    })),
+  )
+  // Le calque du miroir est monté le temps de la séquence, avec un compteur de passage en clé React
+  // → les animations CSS repartent de zéro à chaque déclenchement. Timer interne (rare), aussi tiré
+  // par l'outil de test (bouton ✨ du panneau Animation).
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  const [mirrorRun, setMirrorRun] = useState<number | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let run = 0
+    const fire = () => {
+      clearTimeout(clear) // (re)déclenchement manuel : on repart d'une séquence propre
+      setMirrorRun(++run)
+      clear = setTimeout(() => setMirrorRun(null), QUEEN_MIRROR_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(QUEEN_MIRROR_MS + QUEEN_MIRROR_GAP_MIN_MS + Math.random() * (QUEEN_MIRROR_GAP_MAX_MS - QUEEN_MIRROR_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(QUEEN_MIRROR_TEST ? 3000 : 45_000 + Math.random() * 30_000) // 1re apparition : 45 s à 1 min 15
+    // MODE TEST : déclenche la séquence à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
   return (
-    <div className="queen-decor" aria-hidden>
+    <div className={`queen-decor${mirrorRun !== null ? ' queen-decor--mirror' : ''}`} aria-hidden>
       {/* Fond : la vidéo de fumée violette (réutilise le décor vidéo générique, avec son bouclage en fondu). */}
       <VideoDecor decor={{ kind: 'video', src: decor.src, gradient: decor.gradient }} />
       {/* Bulles de potion verte qui montent du chaudron. */}
@@ -858,6 +1195,58 @@ function EvilQueenDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'e
           />
         </span>
       ))}
+      {/* SURPRISE « Miroir, mon beau miroir ». Monté seulement pendant la séquence (clé = n° de
+          passage → les animations CSS rejouent depuis le début à chaque déclenchement). */}
+      {mirrorRun !== null && (
+        <div className="queen-mirror" key={mirrorRun}>
+          {/* Voile sombre : la lumière baisse le temps de l'invocation, puis remonte. */}
+          <div className="qm-veil" />
+          {/* Les volutes de fumée : elles convergent vers le centre (invocation) puis en repartent
+              (le miroir se défait). Même jeu d'éléments, deux classes / deux moments. */}
+          {wisps.map((w, i) => (
+            <span
+              key={`in-${i}`}
+              className="qm-wisp qm-wisp--in"
+              style={{
+                width: `${w.size}vh`,
+                height: `${w.size}vh`,
+                animationDelay: `${w.delay}s`,
+                '--angle': `${w.angle}deg`,
+                '--dist': `${w.dist}vh`,
+                '--spin': `${w.spin}deg`,
+              } as CSSProperties}
+            />
+          ))}
+          {wisps.map((w, i) => (
+            <span
+              key={`out-${i}`}
+              className="qm-wisp qm-wisp--out"
+              style={{
+                width: `${w.size}vh`,
+                height: `${w.size}vh`,
+                animationDelay: `${8.4 + w.delay}s`, // départ quand le cadre commence à se défaire
+                '--angle': `${w.angle}deg`,
+                '--dist': `${w.dist}vh`,
+                '--spin': `${-w.spin}deg`,
+              } as CSSProperties}
+            />
+          ))}
+          {/* Le miroir : cadre doré ovale (conic-gradient métallique) + glace noire. */}
+          <div className="qm-frame">
+            <div className="qm-glass">
+              {/* Tourbillon de flammes vertes : deux couches contra-rotatives + un brasier au fond. */}
+              <div className="qm-blaze" />
+              <div className="qm-flames" />
+              <div className="qm-flames qm-flames--b" />
+              {/* Le masque : halo vert derrière, puis l'image qui se matérialise et se dissout. */}
+              <div className="qm-face-glow" />
+              <img src={decor.mirrorMask} alt="" className="qm-mask" draggable={false} />
+            </div>
+            {/* Filet lumineux qui court le long du cadre. */}
+            <div className="qm-rim" />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -870,7 +1259,33 @@ const COIN_IMAGES = Array.from({ length: 11 }, (_, i) => `/animations/piece-${i 
  *  reflet déphasé). Quelques PIÈCES tombent lentement en tournoyant par-dessus. Voile
  *  chaud + vignette posés sur le conteneur. Éléments tirés une fois au montage, animations
  *  jouées en CSS (cf. `index.css`, section « poussière d'or »). */
+// SURPRISE « LE COFFRE DÉBORDE… ET SE VIDE » (Prince Jean) : sa cupidité en trois temps.
+// 1) LE DÉLUGE — un torrent de pièces (et quelques diamants) se déverse du haut de la colonne,
+//    bien plus dense que sa pluie de passage. 2) LE MAGOT — l'or S'EMPILE en bas de la colonne, le
+//    tas grossit et des éclats le parcourent : le seul moment où son or est à lui. 3) LA FUITE —
+//    le tas s'affaisse et se vide, la lueur retombe, et il ne reste que sa poussière d'or.
+// Aucun nouvel asset : les 11 pièces sont déjà celles du décor, les 4 diamants existent déjà.
+// Les bornes ci-dessous doivent rester EN PHASE avec la timeline CSS (keyframes `pj*`, index.css).
+const PJ_HOARD_TEST = false
+const PJ_HOARD_MS = 13_000 // déluge (5,5 s) + magot tenu (3 s) + fuite (4,5 s)
+const PJ_HOARD_GAP_MIN_MS = PJ_HOARD_TEST ? 16_000 : 150_000 // 2 min 30
+const PJ_HOARD_GAP_MAX_MS = PJ_HOARD_TEST ? 20_000 : 260_000 // 4 min 20
+const PJ_FLOOD = 110 // pièces/diamants qui se déversent (à un instant donné, un tiers seulement est en vol)
+const PJ_REST = 30 // pièces qui restent posées sur le tas
+const GEM_IMAGES = Array.from({ length: 4 }, (_, i) => `/animations/diamant-${i + 1}.png`)
+// Profil du tas, à garder en phase avec `.pj-mound` (index.css) : pied à 12 vh, crête 22 vh plus
+// haut, et une demi-largeur volontairement PLUS LARGE que le monticule principal — les deux
+// monticules latéraux prolongent le tas jusqu'aux bords de la colonne.
+const PJ_MOUND_BOTTOM = 12 // vh
+const PJ_MOUND_HEIGHT = 22 // vh
+const PJ_MOUND_HALF = 62 // % de la colonne
+/** Hauteur (vh) de la surface du tas à l'abscisse `left` (%), profil elliptique. */
+const moundSurface = (left: number) =>
+  PJ_MOUND_BOTTOM + PJ_MOUND_HEIGHT * Math.sqrt(Math.max(0, 1 - ((left - 50) / PJ_MOUND_HALF) ** 2))
+
 function GoldDustDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   const [motes] = useState(() =>
     Array.from({ length: 60 }, (_, i) => ({
       left: Math.random() * 100, // %
@@ -898,6 +1313,60 @@ function GoldDustDecor() {
       op: 0.5 + Math.random() * 0.3, // un peu transparentes (arrière-plan)
     })),
   )
+  // SURPRISE — LE DÉLUGE : les pièces qui se déversent (une sur six est un diamant, pour l'éclat).
+  const [flood] = useState(() =>
+    Array.from({ length: PJ_FLOOD }, (_, i) => ({
+      img: i % 6 === 5 ? GEM_IMAGES[i % GEM_IMAGES.length] : COIN_IMAGES[i % COIN_IMAGES.length],
+      left: -2 + Math.random() * 104, // %
+      size: 2 + Math.random() * 2.6, // vh
+      dur: 1.1 + Math.random() * 0.7, // s (chute franche : ça se DÉVERSE)
+      delay: Math.random() * 3.4, // s (le torrent s'étale sur toute la montée du tas)
+      spin: (Math.random() < 0.5 ? -1 : 1) * 360 * (1 + Math.floor(Math.random() * 2)),
+    })),
+  )
+  // …et LE MAGOT : les pièces qui restent posées sur le tas, posées une à une.
+  const [rest] = useState(() =>
+    Array.from({ length: PJ_REST }, (_, i) => {
+      const left = 2 + Math.random() * 96 // %
+      return {
+        img: i % 7 === 6 ? GEM_IMAGES[i % GEM_IMAGES.length] : COIN_IMAGES[i % COIN_IMAGES.length],
+        left,
+        // Le tas est bombé : la pièce se pose sur le PROFIL du monticule à SON abscisse (profil
+        // elliptique, comme le `border-radius` du tas — une sinusoïde faisait flotter les pièces
+        // du centre au-dessus de la surface), à une fraction de la hauteur pour qu'aucune ne
+        // dépasse la crête.
+        bottom: PJ_MOUND_BOTTOM + (moundSurface(left) - PJ_MOUND_BOTTOM) * (0.35 + Math.random() * 0.62), // vh
+        size: 2.2 + Math.random() * 2.4, // vh
+        tilt: (Math.random() < 0.5 ? -1 : 1) * (5 + Math.random() * 40), // deg
+        delay: 0.6 + Math.random() * 3, // s (elles s'accumulent pendant que le tas monte)
+      }
+    }),
+  )
+  // SURPRISE : `hoard` = un compteur qui sert de clé React (rejoue les animations). `null` = repos.
+  const [hoard, setHoard] = useState<{ run: number } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let run = 0
+    const fire = () => {
+      setHoard({ run: ++run })
+      clear = setTimeout(() => setHoard(null), PJ_HOARD_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(PJ_HOARD_GAP_MIN_MS + Math.random() * (PJ_HOARD_GAP_MAX_MS - PJ_HOARD_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(PJ_HOARD_TEST ? 3000 : 80_000 + Math.random() * 40_000) // 1er coffre : 1 min 20 à 2 min
+    // MODE TEST : fait déborder le coffre à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
   return (
     <div className="gold-dust-decor" aria-hidden>
       {motes.map((m, i) => (
@@ -952,15 +1421,111 @@ function GoldDustDecor() {
           draggable={false}
         />
       ))}
+      {/* SURPRISE « LE COFFRE DÉBORDE… ET SE VIDE ». */}
+      {hoard && (
+        <div className="pj-hoard" key={hoard.run}>
+          {/* La lueur dorée monte d'un cran pendant que l'or s'entasse, puis retombe. */}
+          <span className="pj-glow" />
+          {/* 1) LE DÉLUGE. */}
+          {flood.map((f, i) => (
+            <img
+              key={`pj-fall-${i}`}
+              src={f.img}
+              alt=""
+              className="pj-fall"
+              style={{
+                left: `${f.left}%`,
+                height: `${f.size}vh`,
+                animationDuration: `${f.dur}s`,
+                animationDelay: `${f.delay}s`,
+                '--coin-spin': `${f.spin}deg`,
+              } as CSSProperties}
+              draggable={false}
+            />
+          ))}
+          {/* 2) LE MAGOT : le tas et les pièces qui s'y posent une à une. TROIS monticules qui se
+              chevauchent (et poussent à des rythmes légèrement décalés) : un dôme unique se lisait
+              comme une bosse lisse, pas comme un tas d'or. */}
+          <span className="pj-mound pj-mound--l" />
+          <span className="pj-mound pj-mound--r" />
+          <span className="pj-mound" />
+          <div className="pj-rest-layer">
+            {rest.map((r, i) => (
+              <img
+                key={`pj-rest-${i}`}
+                src={r.img}
+                alt=""
+                className="pj-rest"
+                style={{
+                  left: `${r.left}%`,
+                  bottom: `${r.bottom}vh`,
+                  height: `${r.size}vh`,
+                  animationDelay: `${r.delay}s`,
+                  '--tilt': `${r.tilt}deg`,
+                } as CSSProperties}
+                draggable={false}
+              />
+            ))}
+          </div>
+          {/* Les éclats de reflet qui parcourent le tas pendant qu'il est à son plus haut. */}
+          <span className="pj-glint" />
+          <span className="pj-glint pj-glint--2" />
+        </div>
+      )}
     </div>
   )
 }
 
+// SURPRISE « TOUCHEZ LE FUSEAU… » (Maléfique) : la MALÉDICTION, en trois temps. 1) LE FEU FOLLET —
+// la boule verte qui erre derrière les ronces s'efface et sa magie se rassemble EN HAUT de la colonne
+// (le plateau du vilain en occupe le milieu), où elle enfle en pulsant (le sortilège qui attire
+// Aurore ; hauteur réglable d'un seul endroit : `--thorn-curse-y`). 2) LE ROUET — il se rétracte en un
+// point incandescent tandis que le ROUET se matérialise autour de lui en silhouette noire (roue à
+// rayons + fuseau), tournant de plus en plus vite, la pointe du fuseau brillant de vert. 3) LA
+// PIQÛRE — la pointe éclate : un flash vert et deux ondes déferlent sur tout l'écran, puis le rouet
+// ralentit, s'efface, et la boule reprend sa balade. 100 % CSS, aucun asset (keyframes `thornCurse*`
+// / `thornWisp` / `thornWheel*`, cf. index.css). Les bornes ci-dessous doivent rester EN PHASE avec
+// la timeline CSS. Flag de test → cadence rapprochée pour régler.
+const THORN_CURSE_TEST = false
+const THORN_CURSE_MS = 9000 // durée totale : follet (0–2,4 s) → rouet (2,4–5 s) → piqûre (5 s) → fondu (–9 s)
+const THORN_CURSE_GAP_MIN_MS = THORN_CURSE_TEST ? 6000 : 75_000 // 1 min 15 (c'est une SURPRISE : c'est rare)
+const THORN_CURSE_GAP_MAX_MS = THORN_CURSE_TEST ? 11_000 : 150_000 // 2 min 30
+
 /** Décor « ronces » : l'image `ronces.png` (ronces noires sur fond blanc) posée en
  *  `mix-blend-mode: multiply` → le blanc disparaît, seules les ronces restent, par-dessus
  *  une lueur verte pulsante (la magie de Maléfique) ; des étincelles vertes s'élèvent en
- *  scintillant. Étincelles tirées une fois au montage. */
+ *  scintillant. Étincelles tirées une fois au montage.
+ *  SURPRISE : « Touchez le fuseau… » (cf. ci-dessus). */
 function ThornsDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  // SURPRISE « touchez le fuseau… » : on monte le calque `.thorn-curse` le temps de la séquence,
+  // avec un compteur de passage en clé React → les animations CSS repartent de zéro à chaque
+  // déclenchement (même mécanique que la clé noire du Seigneur des clés).
+  const [curseRun, setCurseRun] = useState<number | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let run = 0
+    const fire = () => {
+      setCurseRun(++run)
+      clear = setTimeout(() => setCurseRun(null), THORN_CURSE_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(THORN_CURSE_GAP_MIN_MS + Math.random() * (THORN_CURSE_GAP_MAX_MS - THORN_CURSE_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(THORN_CURSE_TEST ? 3000 : 45_000 + Math.random() * 30_000) // 1re apparition : 45 s à 1 min 15
+    // MODE TEST : déclenche la malédiction à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
   // Étincelles vertes qui montent en scintillant.
   const [sparks] = useState(() =>
     Array.from({ length: 26 }, () => ({
@@ -973,11 +1538,15 @@ function ThornsDecor() {
     })),
   )
   return (
-    <div className="thorns-decor" aria-hidden>
+    <div className={`thorns-decor${curseRun !== null ? ' is-cursing' : ''}`} aria-hidden>
       {/* Lueur verte pulsante (la magie qui émane du sol). */}
       <div className="thorn-glow" />
-      {/* Boule verte hypnotique qui se balade DERRIÈRE les ronces (la magie de Maléfique). */}
-      <div className="thorn-orb" />
+      {/* Boule verte hypnotique qui se balade DERRIÈRE les ronces (la magie de Maléfique).
+          Enveloppe : pendant la malédiction, elle s'efface (sa magie part au centre) puis revient —
+          on anime l'ENVELOPPE pour ne pas relancer la balade (`orbWander`) de l'orbe. */}
+      <div className="thorn-orb-wrap">
+        <div className="thorn-orb" />
+      </div>
       {/* Étincelles vertes. */}
       {sparks.map((s, i) => (
         <span
@@ -999,6 +1568,28 @@ function ThornsDecor() {
       <div className="thorn-bramble" />
       <div className="thorn-bramble thorn-bramble--rot" />
       <div className="thorn-bramble thorn-bramble--rot45" />
+      {/* SURPRISE « Touchez le fuseau… » : monté le temps de la séquence, PAR-DESSUS les ronces
+          (z-index) pour rester lisible. La clé React rejoue les animations à chaque passage. */}
+      {curseRun !== null && (
+        <div className="thorn-curse" key={curseRun}>
+          {/* Voile sombre : la scène s'éteint autour du sortilège. */}
+          <div className="thorn-veil" />
+          {/* Le feu follet : il enfle au centre, puis se rétracte en un point sur la pointe du fuseau. */}
+          <div className="thorn-wisp" />
+          {/* Le rouet, en silhouette : jante + rayons (qui tournent) + moyeu + fuseau à droite. */}
+          <div className="thorn-wheel">
+            <div className="thorn-wheel-spokes" />
+            <div className="thorn-wheel-hub" />
+            <div className="thorn-spindle">
+              <span className="thorn-spindle-tip" />
+            </div>
+          </div>
+          {/* La piqûre : flash vert + deux ondes qui déferlent depuis la pointe. */}
+          <div className="thorn-prick-flash" />
+          <div className="thorn-wave" />
+          <div className="thorn-wave thorn-wave--late" />
+        </div>
+      )}
     </div>
   )
 }
@@ -1157,11 +1748,54 @@ function ForestDecor() {
   )
 }
 
+// SURPRISE « QU'ON LUI COUPE LA TÊTE ! » (Reine de Cœur) : sa colère, en trois temps. 1) LE SILENCE —
+// les pétales se FIGENT en plein vol et le fond cramoisi vire au ROUGE SANG, la vignette se referme.
+// 2) LE CRI — tout le champ de pétales est BALAYÉ VERS LE HAUT (ils repartent à contresens de leur
+// chute) pendant que deux ondes en forme de CŒUR se propagent sur toute la colonne. 3) LE VERDICT —
+// la sentence s'abat au centre comme un COUP DE TAMPON (elle arrive floue et trop grande, se pose net)
+// avec une secousse, marque un temps, puis tout retombe et les pétales reprennent leur chute.
+// 100 % CSS + texte, aucun asset (keyframes `qh*`, cf. index.css). Les bornes ci-dessous doivent rester
+// EN PHASE avec la timeline CSS. Flag de test → cadence rapprochée pour régler.
+const QUEEN_FURY_TEST = false
+const QUEEN_FURY_MS = 10_000 // silence (0–1,2 s) → cri (1,2–4 s) → verdict (1,6–7,5 s) → retour
+const QUEEN_FURY_GAP_MIN_MS = QUEEN_FURY_TEST ? 6000 : 75_000 // 1 min 15 (c'est une SURPRISE : c'est rare)
+const QUEEN_FURY_GAP_MAX_MS = QUEEN_FURY_TEST ? 11_000 : 150_000 // 2 min 30
+
 /** Décor « petals » : des pétales de roses rouges tombent du haut en voletant (oscillation
  *  latérale) et en tournoyant, sur un fond cramoisi sombre. Pétales tirés une fois au montage,
- *  chute jouée en CSS (cf. `index.css`, section « pétales de roses »). (Reine de Cœur) */
+ *  chute jouée en CSS (cf. `index.css`, section « pétales de roses »). (Reine de Cœur)
+ *  SURPRISE : « Qu'on lui coupe la tête ! » (cf. ci-dessus). */
 const PETAL_REDS = ['#c8162e', '#a8122a', '#d83350', '#8e0e22', '#b81832']
 function PetalsDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  // SURPRISE « qu'on lui coupe la tête ! » : la classe `is-fury` fige les pétales et emporte leur
+  // champ ; le calque `.queen-fury` (monté le temps de la séquence, clé React = numéro de passage)
+  // joue le sang, les ondes en cœur et le verdict.
+  const [furyRun, setFuryRun] = useState<number | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let run = 0
+    const fire = () => {
+      setFuryRun(++run)
+      clear = setTimeout(() => setFuryRun(null), QUEEN_FURY_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(QUEEN_FURY_GAP_MIN_MS + Math.random() * (QUEEN_FURY_GAP_MAX_MS - QUEEN_FURY_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(QUEEN_FURY_TEST ? 3000 : 45_000 + Math.random() * 30_000) // 1re colère : 45 s à 1 min 15
+    // MODE TEST : déclenche la colère à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
   const [petals] = useState(() =>
     Array.from({ length: 36 }, (_, i) => ({
       left: Math.random() * 100, // %
@@ -1174,33 +1808,125 @@ function PetalsDecor() {
     })),
   )
   return (
-    <div className="petals-decor" aria-hidden>
-      {petals.map((p, i) => (
-        <span
-          key={i}
-          className="petal"
-          style={{
-            left: `${p.left}%`,
-            width: `${p.size}vh`,
-            height: `${p.size * 1.4}vh`,
-            // Fallback ; `petalFall` pilote position ET couleur (blanc en haut → rouge en bas).
-            backgroundColor: p.color,
-            opacity: p.op,
-            animationDuration: `${p.dur}s`,
-            animationDelay: `${p.delay}s`,
-            '--red': p.color,
-            '--sx': `${p.sx}vw`,
-          } as CSSProperties}
-        />
-      ))}
+    <div className={`petals-decor${furyRun !== null ? ' is-fury' : ''}`} aria-hidden>
+      {/* Champ de pétales : c'est LUI qu'emporte la bourrasque (les pétales, eux, sont figés) —
+          on anime l'enveloppe pour ne pas casser leur chute (`petalFall`). */}
+      <div className="petal-field">
+        {petals.map((p, i) => (
+          <span
+            key={i}
+            className="petal"
+            style={{
+              left: `${p.left}%`,
+              width: `${p.size}vh`,
+              height: `${p.size * 1.4}vh`,
+              // Fallback ; `petalFall` pilote position ET couleur (blanc en haut → rouge en bas).
+              backgroundColor: p.color,
+              opacity: p.op,
+              animationDuration: `${p.dur}s`,
+              animationDelay: `${p.delay}s`,
+              '--red': p.color,
+              '--sx': `${p.sx}vw`,
+            } as CSSProperties}
+          />
+        ))}
+      </div>
+      {/* SURPRISE « Qu'on lui coupe la tête ! » : monté le temps de la séquence ; la clé React
+          rejoue les animations CSS à chaque passage. */}
+      {furyRun !== null && (
+        <div className="queen-fury" key={furyRun}>
+          {/* Le fond vire au rouge sang, et la vignette se referme. */}
+          <div className="qh-blood" />
+          <div className="qh-vignette" />
+          {/* Deux ondes en forme de cœur, qui se propagent depuis le verdict. */}
+          <div className="qh-heart" />
+          <div className="qh-heart qh-heart--late" />
+          {/* La sentence, tamponnée. */}
+          <div className="qh-verdict">Qu'on lui coupe la tête !</div>
+        </div>
+      )}
     </div>
   )
 }
 
+// SURPRISE « LA BORDÉE » (Capitaine Crochet) : le JOLLY ROGER — mouillé dans le lagon, au centre de
+// l'illustration de Neverland — CANONNE LE CIEL, comme quand Crochet tire sur Peter Pan en plein vol.
+// Chaque coup : l'ÉCLAIR de bouche claque sur le navire (halo orange + son reflet sur l'eau), le
+// BOULET s'élève en ARC au-dessus de la mer en semant une traînée de fumée qui s'étale, puis il
+// ÉCLATE en plein ciel (flash + bouffée qui gonfle et se dissipe + éclats). 100 % CSS, aucun asset.
+// Les bornes ci-dessous doivent rester EN PHASE avec la timeline CSS (keyframes `water*`, index.css).
+const WATER_BARRAGE_TEST = false
+const WATER_SHOTS = 5 // coups d'une salve
+const WATER_TRAIL_PUFFS = 7 // bouffées de fumée semées le long de l'arc, par coup
+const WATER_BARRAGE_MS = 11_000 // salve complète : dernier départ (~3,4 s) + vol + explosion + dissipation
+const WATER_BARRAGE_GAP_MIN_MS = WATER_BARRAGE_TEST ? 9000 : 140_000 // ≈ 2 min 20
+const WATER_BARRAGE_GAP_MAX_MS = WATER_BARRAGE_TEST ? 14_000 : 260_000 // ≈ 4 min 20
+// Géométrie de l'île, à garder EN PHASE avec `.water-island` (index.css) : la boîte fait 34 vh de
+// large, l'illustration (415×315) y tient en `contain` — donc ~25,8 vh de haut — calée en bas à
+// gauche, à `bottom: 15 %`. Le NAVIRE se trouve aux ~54 % de la largeur et ~70 % de la hauteur de
+// l'illustration (depuis le haut) : c'est de là que part chaque coup.
+const WATER_ISLAND_W_VH = 34
+const WATER_ISLAND_H_VH = 25.8
+const WATER_ISLAND_BOTTOM_PCT = 15
+const WATER_SHIP_X = 0.51 // fraction de la largeur de l'île
+const WATER_SHIP_Y = 0.62 // fraction de sa hauteur, depuis le HAUT
+
+// Un coup de canon de la salve. La trajectoire est un ARC : X linéaire (`waterBallX`), Y décéléré
+// (`waterBallY`, ease-out quad) — le boulet ralentit à mesure qu'il monte, comme un vrai tir.
+type WaterShot = {
+  delay: number // s (échelonnement dans la salve)
+  flight: number // s (bouche → apogée)
+  dx: number // vh parcourus vers le large (en vh comme le reste du décor : la colonne est étroite,
+  //            des vw feraient sortir l'apogée du cadre du vilain)
+  dy: number // vh de montée jusqu'à l'apogée
+  size: number // vh (calibre du boulet)
+  grow: number // agrandissement du boulet pendant le vol (il vient vers nous)
+  puffs: { t: number; x: number; y: number; size: number; drift: number }[] // fumée semée sur l'arc
+  sparks: { sx: number; sy: number; dur: number }[] // éclats de l'explosion
+}
+
+/** Tire un coup au hasard (position d'apogée, calibre, fumée, éclats). La fumée est semée AUX MÊMES
+ *  coordonnées que le boulet — même courbe qu'en CSS — à l'instant où il passe. */
+function makeWaterShot(i: number): WaterShot {
+  const flight = 1.5 + Math.random() * 0.5 // s
+  const dx = 9 + Math.random() * 13 // vh (vers le large, à droite du navire — sans sortir de la colonne)
+  const dy = 55 + Math.random() * 20 // vh (assez pour éclater HAUT dans le ciel, au-dessus de l'île)
+  return {
+    delay: i * 0.72 + Math.random() * 0.3,
+    flight,
+    dx,
+    dy,
+    size: 0.8 + Math.random() * 0.5,
+    grow: 1.5 + Math.random() * 0.6,
+    puffs: Array.from({ length: WATER_TRAIL_PUFFS }, (_, k) => {
+      const t = (k + 1) / (WATER_TRAIL_PUFFS + 1)
+      return {
+        t,
+        x: dx * t, // vh
+        y: dy * (1 - (1 - t) ** 2), // vh (ease-out quad, comme la courbe CSS du boulet)
+        size: 1.3 + t * 2.4 + Math.random(), // vh (la fumée s'épaissit en s'étalant)
+        drift: (Math.random() - 0.25) * 2.6, // vh (elle dérive avec le vent)
+      }
+    }),
+    sparks: Array.from({ length: 8 }, (_, k) => {
+      const ang = (k / 8) * Math.PI * 2 + Math.random() * 0.4
+      const dist = 3 + Math.random() * 4
+      return {
+        sx: +(Math.cos(ang) * dist).toFixed(2), // vh
+        sy: +(Math.sin(ang) * dist).toFixed(2), // vh
+        dur: 0.6 + Math.random() * 0.45, // s
+      }
+    }),
+  }
+}
+
 /** Décor « water » : une mer de nuit — des reflets de lune (traînées horizontales claires)
  *  ondulent (va-et-vient lent) et scintillent (opacité) sur l'eau, dans le bas de l'écran.
- *  Reflets tirés une fois au montage, animations en CSS (cf. `index.css`). (Capitaine Crochet) */
+ *  Reflets tirés une fois au montage, animations en CSS (cf. `index.css`).
+ *  Surprise : « la bordée » — le Jolly Roger canonne le ciel (cf. ci-dessus). (Capitaine Crochet) */
 function WaterDecor({ side }: { side?: 'left' | 'right' }) {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Houle douce : larges traînées diffuses qui ondulent lentement sur l'eau.
   const [swells] = useState(() =>
     Array.from({ length: 7 }, () => ({
@@ -1242,6 +1968,38 @@ function WaterDecor({ side }: { side?: 'left' | 'right' }) {
       delay: -(Math.random() * 40), // s
     })),
   )
+  // SURPRISE « la bordée » : `barrage` = la salve en cours (les coups tirés au hasard + un compteur
+  // qui sert de clé React pour rejouer les animations). `null` = le canon se tait.
+  const [barrage, setBarrage] = useState<{ run: number; shots: WaterShot[] } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let run = 0
+    const fire = () => {
+      setBarrage({ run: ++run, shots: Array.from({ length: WATER_SHOTS }, (_, i) => makeWaterShot(i)) })
+      clear = setTimeout(() => setBarrage(null), WATER_BARRAGE_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(WATER_BARRAGE_GAP_MIN_MS + Math.random() * (WATER_BARRAGE_GAP_MAX_MS - WATER_BARRAGE_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(WATER_BARRAGE_TEST ? 3000 : 55_000 + Math.random() * 45_000) // 1re salve : 55 s à 1 min 40
+    // MODE TEST : déclenche la salve à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  // Bouche du canon = le Jolly Roger sur l'illustration de l'île (elle-même décalée côté joueur).
+  const islandLeft = side === 'left' ? 10 : 1 // % (cf. `.water-island`)
+  const muzzle = {
+    left: `calc(${islandLeft}% + ${(WATER_SHIP_X * WATER_ISLAND_W_VH).toFixed(1)}vh)`,
+    bottom: `calc(${WATER_ISLAND_BOTTOM_PCT}% + ${((1 - WATER_SHIP_Y) * WATER_ISLAND_H_VH).toFixed(1)}vh)`,
+  }
   return (
     <div className="water-decor" aria-hidden>
       {/* Nuages en haut. */}
@@ -1299,6 +2057,73 @@ function WaterDecor({ side }: { side?: 'left' | 'right' }) {
           } as CSSProperties}
         />
       ))}
+      {/* SURPRISE « la bordée » : tout part de la BOUCHE du canon (le Jolly Roger dans le lagon) ;
+          chaque coup place ses éléments par rapport à ce point. La clé React rejoue les animations
+          CSS à chaque salve. */}
+      {barrage && (
+        <div className="water-barrage" key={barrage.run} style={muzzle}>
+          {barrage.shots.map((s, i) => (
+            <div key={i} className="water-shot">
+              {/* L'éclair de bouche : la lueur qui claque au canon + son reflet étalé sur l'eau. */}
+              <span className="water-muzzle" style={{ animationDelay: `${s.delay}s` }} />
+              <span className="water-muzzle-water" style={{ animationDelay: `${s.delay}s` }} />
+              {/* La fumée semée le long de l'arc : chaque bouffée éclot quand le boulet passe. */}
+              {s.puffs.map((p, k) => (
+                <span
+                  key={`puff-${k}`}
+                  className="water-trail"
+                  style={{
+                    left: `${p.x}vh`,
+                    bottom: `${p.y}vh`,
+                    width: `${p.size}vh`,
+                    height: `${p.size}vh`,
+                    animationDelay: `${(s.delay + p.t * s.flight).toFixed(2)}s`,
+                    '--drift': `${p.drift}vh`,
+                  } as CSSProperties}
+                />
+              ))}
+              {/* LE BOULET : X linéaire (enveloppe) × Y décéléré (enfant) = arc de tir. */}
+              <span
+                className="water-ball-x"
+                style={{ '--dx': `${s.dx}vh`, animationDuration: `${s.flight}s`, animationDelay: `${s.delay}s` } as CSSProperties}
+              >
+                <span
+                  className="water-ball-y"
+                  style={{ '--dy': `${s.dy}vh`, animationDuration: `${s.flight}s`, animationDelay: `${s.delay}s` } as CSSProperties}
+                >
+                  <span
+                    className="water-ball"
+                    style={{
+                      width: `${s.size}vh`,
+                      height: `${s.size}vh`,
+                      animationDuration: `${s.flight}s, ${s.flight}s`,
+                      animationDelay: `${s.delay}s, ${s.delay}s`,
+                      '--grow': s.grow,
+                    } as CSSProperties}
+                  />
+                </span>
+              </span>
+              {/* L'EXPLOSION à l'apogée : flash, bouffée de fumée qui gonfle, éclats projetés. */}
+              <span className="water-burst" style={{ left: `${s.dx}vh`, bottom: `${s.dy}vh` }}>
+                <span className="water-burst-flash" style={{ animationDelay: `${(s.delay + s.flight).toFixed(2)}s` }} />
+                <span className="water-burst-smoke" style={{ animationDelay: `${(s.delay + s.flight).toFixed(2)}s` }} />
+                {s.sparks.map((k, j) => (
+                  <span
+                    key={`spark-${j}`}
+                    className="water-burst-spark"
+                    style={{
+                      animationDuration: `${k.dur}s`,
+                      animationDelay: `${(s.delay + s.flight).toFixed(2)}s`,
+                      '--sx': `${k.sx}vh`,
+                      '--sy': `${k.sy}vh`,
+                    } as CSSProperties}
+                  />
+                ))}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -3039,10 +3864,87 @@ const BF_POTION_IMAGES = [
 const BF_POTION_PERIOD_MS = 30000 // une potion (ou la baguette) tombe toutes les 30 s
 const BF_POTION_FALL_MS = 21000 // marge couvrant la chute (~20 s) avant démontage
 
+// ----- SURPRISE « HOLDING OUT FOR A HERO » (le karaoké du bal, Shrek 2) -----
+// La Bonne Fée empoigne le micro et la salle devient sa scène :
+//  1. LES LUMIÈRES S'ÉTEIGNENT — un voile sombre tombe sur la magie rose, qui se retire ;
+//  2. LA SCÈNE S'ALLUME — cinq POURSUITES de COULEURS différentes (magenta, violet, cyan, or, corail)
+//     s'allument en haut de la colonne et balaient la salle en se CROISANT ;
+//  3. LE REFRAIN — TOUT bat la mesure : un voile rose pulse sur le temps, des ONDES SONORES partent
+//     de la scène (bas de la colonne), un ÉGALISEUR danse en bas, des PAILLETTES accrochent la lumière
+//     des spots un peu partout et des NOTES de musique montent ;
+//  4. LE DERNIER ACCORD — les cinq poursuites se braquent sur le centre, un FLASH blanc claque, et la
+//     salle rallume sa magie rose comme si de rien n'était.
+// 100 % CSS, aucun asset. ⚠️ Les jalons sont écrits en % dans les keyframes `bfHero*` (index.css),
+// toutes calées sur une durée de 12 s → garder BF_HERO_DUR_MS en phase.
+const BF_HERO_DUR_MS = 12_000 // séquence complète
+const BF_HERO_GAP_MIN_MS = 75_000 // entre deux numéros (c'est une SURPRISE : c'est rare)
+const BF_HERO_GAP_MAX_MS = 130_000
+const BF_HERO_BEAT_MS = 405 // le TEMPO (≈ 148 BPM, celui de « Holding Out for a Hero »)
+const BF_HERO_RINGS = 4 // ondes sonores en vol (une part à chaque temps)
+const BF_HERO_GLINTS = 46 // paillettes qui accrochent la lumière des spots
+const BF_HERO_BARS = 26 // barres de l'égaliseur
+const BF_HERO_NOTES = 14 // notes de musique qui montent
+const BF_HERO_NOTE_GLYPHS = ['♪', '♫', '♩', '♬']
+// Les POURSUITES : cinq projecteurs alignés en haut de la colonne (`left` = le point d'accroche, qui
+// sert aussi de PIVOT au faisceau). Chacun balaie la salle entre SES deux angles `a0`/`a1` (en degrés,
+// positif = vers la droite) — un projecteur sur deux part à l'envers, d'où les faisceaux qui se
+// CROISENT — puis vient se braquer sur le centre (`conv`) au dernier accord. `c` = sa couleur, en
+// composantes « R, G, B » (le CSS en tire le dégradé du faisceau et le halo de la source).
+const BF_HERO_BEAMS = [
+  { left: 8, c: '255, 92, 196', a0: 34, a1: -6, conv: 20 }, // magenta
+  { left: 29, c: '168, 116, 255', a0: -22, a1: 18, conv: 9 }, // violet
+  { left: 50, c: '116, 226, 255', a0: 26, a1: -26, conv: 0 }, // cyan
+  { left: 71, c: '255, 196, 104', a0: -18, a1: 22, conv: -9 }, // or
+  { left: 92, c: '255, 118, 150', a0: 6, a1: -34, conv: -20 }, // corail
+]
+// Teintes des paillettes : celles des spots (+ un blanc chaud) → elles semblent renvoyer leur lumière.
+const BF_HERO_GLINT_COLORS = [
+  'rgba(255, 92, 196, 0.95)', 'rgba(168, 116, 255, 0.92)', 'rgba(116, 226, 255, 0.92)',
+  'rgba(255, 196, 104, 0.95)', 'rgba(255, 244, 252, 0.95)',
+]
+
+interface BfHeroShow {
+  /** Paillettes de la salle : semées sur tout l'écran, chacune scintillant sur le tempo. */
+  glints: { left: number; top: number; size: number; color: string; beats: number; delay: number }[]
+  /** Barres de l'égaliseur : hauteur au repos + rythme propre (multiples du tempo). */
+  bars: { h: number; beats: number; delay: number }[]
+  /** Notes de musique qui montent en dérivant. */
+  notes: { glyph: string; left: number; size: number; dur: number; delay: number; sway: number; rot: number }[]
+}
+
+/** Tire les éléments aléatoires d'un numéro (un tirage par déclenchement → jamais deux fois le même). */
+function buildBfHeroShow(): BfHeroShow {
+  return {
+    glints: Array.from({ length: BF_HERO_GLINTS }, () => ({
+      left: Math.random() * 100, // % (du calque tournant, qui déborde de l'écran)
+      top: Math.random() * 100, // %
+      size: 0.4 + Math.random() * 1.2, // vh
+      color: BF_HERO_GLINT_COLORS[Math.floor(Math.random() * BF_HERO_GLINT_COLORS.length)],
+      beats: 1 + Math.floor(Math.random() * 3), // scintille tous les 1, 2 ou 3 temps
+      delay: Math.random() * 1.2, // s (déphasés → l'écran pétille en continu)
+    })),
+    bars: Array.from({ length: BF_HERO_BARS }, () => ({
+      h: 4 + Math.random() * 14, // vh (hauteur maxi de la barre)
+      beats: 1 + Math.floor(Math.random() * 2), // certaines barres suivent le temps, d'autres le double
+      delay: -(Math.random() * 0.8), // s (négatif → déjà en mouvement à l'allumage)
+    })),
+    notes: Array.from({ length: BF_HERO_NOTES }, () => ({
+      glyph: BF_HERO_NOTE_GLYPHS[Math.floor(Math.random() * BF_HERO_NOTE_GLYPHS.length)],
+      left: 6 + Math.random() * 88, // %
+      size: 2.4 + Math.random() * 3, // vh
+      dur: 4 + Math.random() * 3.5, // s (montée)
+      delay: 1 + Math.random() * 6.5, // s (échelonnées sur tout le refrain)
+      sway: (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 9), // vw (dérive latérale)
+      rot: (Math.random() < 0.5 ? -1 : 1) * (15 + Math.random() * 45), // deg
+    })),
+  }
+}
+
 /** Décor « laBonneFee » (Marraine de Shrek) : sa MAGIE ROSE qui retombe — des volutes de fumée rose lumineuse
  *  qui TOMBENT lentement du haut en dérivant latéralement et en se dissipant, sur un fond violacé, surmontées
  *  d'une lueur rose pulsante en haut (la source) et vignetté. Éléments tirés une fois au montage ; animations
- *  CSS (cf. index.css). */
+ *  CSS (cf. index.css).
+ *  SURPRISE « Holding Out for a Hero » : le karaoké du bal (cf. le bloc BF_HERO_* ci-dessus). */
 function LaBonneFeeDecor() {
   // Volutes de fumée qui tombent : enveloppe = descente (bfSmokeFall), milieu = dérive latérale (bfSmokeSway),
   // pastille = la bouffée floue. Tailles/vitesses/dérives/textures variées, figées au montage (la COULEUR, elle,
@@ -3109,8 +4011,33 @@ function LaBonneFeeDecor() {
       clearTimeout(clear)
     }
   }, [])
+  // SURPRISE « Holding Out for a Hero » : le numéro entier est piloté par des keyframes CSS calées sur
+  // BF_HERO_DUR_MS (aucune machine à phases nécessaire) ; on monte le calque, on le démonte à la fin.
+  // Timer interne (rare), aussi tirée à la demande par l'outil de test (`useSurpriseSub`).
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  const [hero, setHero] = useState<{ seq: number; show: BfHeroShow } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    let end: ReturnType<typeof setTimeout>
+    let seq = 0
+    const gap = () => BF_HERO_GAP_MIN_MS + Math.random() * (BF_HERO_GAP_MAX_MS - BF_HERO_GAP_MIN_MS)
+    const fire = (fireRef.current = () => {
+      clearTimeout(next) // (re)déclenchement manuel : on repart d'un cycle propre
+      clearTimeout(end)
+      setHero({ seq: seq++, show: buildBfHeroShow() })
+      end = setTimeout(() => setHero(null), BF_HERO_DUR_MS)
+      next = setTimeout(fire, BF_HERO_DUR_MS + gap())
+    })
+    next = setTimeout(fire, gap())
+    return () => {
+      clearTimeout(next)
+      clearTimeout(end)
+    }
+  }, [])
   return (
-    <div className="bf-decor" aria-hidden>
+    <div className={`bf-decor${hero ? ' bf-decor--hero' : ''}`} aria-hidden>
       {/* Lueur rose pulsante en haut (la source de la magie). */}
       <div className="bf-glow" />
       {/* Lumière blanc-bleu qui s'illumine DERRIÈRE la fumée à chaque changement de couleur (rejouée via sa key). */}
@@ -3163,6 +4090,92 @@ function LaBonneFeeDecor() {
       )}
       {/* Vignette : coins assombris. */}
       <div className="bf-vignette" />
+      {/* SURPRISE « Holding Out for a Hero » : le karaoké du bal, PAR-DESSUS tout le décor. Tout le
+          calque est rejoué à neuf à chaque numéro (remontage par `key`) ; le tempo (`--beat`) est la
+          seule variable partagée, dont dérivent les rythmes des éclats, des ondes et de l'égaliseur. */}
+      {hero && (
+        <div key={hero.seq} className="bf-hero" style={{ '--beat': `${BF_HERO_BEAT_MS}ms` } as CSSProperties}>
+          {/* 1. Les lumières s'éteignent. */}
+          <div className="bf-hero-dark" />
+          {/* 2 & 3. La scène s'allume : tout ce qui joue le numéro partage cette enveloppe de fondu. */}
+          <div className="bf-hero-on">
+            {/* Les POURSUITES COLORÉES : cinq projecteurs qui balaient la salle en se croisant, puis
+                se braquent tous sur le centre au dernier accord. Angles et couleur posés en inline. */}
+            {BF_HERO_BEAMS.map((b, i) => (
+              <div
+                key={i}
+                className="bf-hero-beam"
+                style={{
+                  left: `${b.left}%`,
+                  '--c': b.c,
+                  '--a0': `${b.a0}deg`,
+                  '--a1': `${b.a1}deg`,
+                  '--conv': `${b.conv}deg`,
+                } as CSSProperties}
+              />
+            ))}
+            {/* Les PAILLETTES de la salle, semées sur tout l'écran dans un calque qui tourne lentement ;
+                chacune accroche la lumière sur un multiple du tempo, déphasée. */}
+            <div className="bf-hero-glitter">
+              {hero.show.glints.map((g, i) => (
+                <span
+                  key={i}
+                  className="bf-hero-glint"
+                  style={{
+                    left: `${g.left}%`,
+                    top: `${g.top}%`,
+                    width: `${g.size}vh`,
+                    height: `${g.size}vh`,
+                    background: g.color,
+                    boxShadow: `0 0 ${g.size * 2.4}vh ${g.color}`,
+                    animationDuration: `calc(var(--beat) * ${g.beats})`,
+                    animationDelay: `${g.delay}s`,
+                  }}
+                />
+              ))}
+            </div>
+            {/* Le voile rose qui PULSE sur le temps (tout le décor bat la mesure). */}
+            <div className="bf-hero-beat" />
+            {/* Les ONDES SONORES : une part de la scène (bas de la colonne) à chaque temps. */}
+            {Array.from({ length: BF_HERO_RINGS }, (_, i) => (
+              <span key={i} className="bf-hero-ring" style={{ animationDelay: `calc(var(--beat) * ${i})` }} />
+            ))}
+            {/* L'ÉGALISEUR, en bas de la colonne. */}
+            <div className="bf-hero-eq">
+              {hero.show.bars.map((b, i) => (
+                <span
+                  key={i}
+                  className="bf-hero-eq-bar"
+                  style={{
+                    height: `${b.h}vh`,
+                    animationDuration: `calc(var(--beat) * ${b.beats})`,
+                    animationDelay: `${b.delay}s`,
+                  }}
+                />
+              ))}
+            </div>
+            {/* Les NOTES de musique, qui montent en dérivant. */}
+            {hero.show.notes.map((n, i) => (
+              <span
+                key={i}
+                className="bf-hero-note"
+                style={{
+                  left: `${n.left}%`,
+                  fontSize: `${n.size}vh`,
+                  animationDuration: `${n.dur}s`,
+                  animationDelay: `${n.delay}s`,
+                  '--sway': `${n.sway}vw`,
+                  '--rot': `${n.rot}deg`,
+                } as CSSProperties}
+              >
+                {n.glyph}
+              </span>
+            ))}
+          </div>
+          {/* 4. Le dernier accord : flash blanc. */}
+          <div className="bf-hero-flash" />
+        </div>
+      )}
     </div>
   )
 }
@@ -5696,12 +6709,53 @@ const CANDY_CROCS = new Set([
   '/animations/bonbon-14.png', '/animations/bonbon-15.png',
 ])
 
+// SURPRISE « TURBO ! » (Sa Sucrerie / Roi Candy) : le virus se démasque. Le monde en sucre se CORROMPT
+// — la scène TRESSAUTE et se DÉDOUBLE en blanc/cyan (le bug d'écran de Slenderman, repris sur
+// l'enveloppe `.candy-field`), des SCANLINES défilent, des BANDES de l'image sont arrachées, un
+// balayage cathodique descend, les couleurs déraillent puis la palette rose vire au BLANC-BLEU GLACÉ
+// de Turbo, son nom claque deux fois en gros pixels, un flash — et tout se recolle
+// en sucre. 100 % CSS + texte, aucun asset (keyframes `cg*`, cf. index.css). Les bornes ci-dessous
+// doivent rester EN PHASE avec la timeline CSS. Flag de test → cadence rapprochée pour régler.
+const CANDY_GLITCH_TEST = false
+const CANDY_GLITCH_MS = 6500 // premiers soubresauts → corruption → pic (« TURBO ») → tout se recolle
+const CANDY_GLITCH_GAP_MIN_MS = CANDY_GLITCH_TEST ? 6000 : 75_000 // 1 min 15 (c'est une SURPRISE : c'est rare)
+const CANDY_GLITCH_GAP_MAX_MS = CANDY_GLITCH_TEST ? 11_000 : 150_000 // 2 min 30
+
 /** Décor « candy » (Sa Sucrerie / Roi Candy — Les Mondes de Ralph) : le monde de bonbons de Sugar Rush.
  *  Fond rose/magenta gourmand, des VERMICELLES colorés (sprinkles) tombent en voletant (chute + ondulation
  *  + rotation), un BOKEH sucré (ronds doux colorés) dérive et scintille en fond, une bande de GLAÇAGE
  *  blanc ondulé borde le bas, et — la COURSE de Sugar Rush — une PISTE (route) qui défile en bas, des
  *  TRAÎNÉES de vitesse qui la zèbrent et des BONBONS-BOLIDES qui la filent. En reduced-motion : tout figé. */
 function CandyDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  // SURPRISE « TURBO ! » : la classe `is-glitch` corrompt tout le décor (désaturation/contraste qui
+  // déraillent + soubresauts), le calque `.candy-glitch` (monté le temps de la séquence, clé React =
+  // numéro de passage) ajoute les bandes arrachées, la grille de gros pixels, le balayage et le nom.
+  const [glitchRun, setGlitchRun] = useState<number | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let run = 0
+    const fire = () => {
+      setGlitchRun(++run)
+      clear = setTimeout(() => setGlitchRun(null), CANDY_GLITCH_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(CANDY_GLITCH_GAP_MIN_MS + Math.random() * (CANDY_GLITCH_GAP_MAX_MS - CANDY_GLITCH_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(CANDY_GLITCH_TEST ? 3000 : 45_000 + Math.random() * 30_000) // 1re corruption : 45 s à 1 min 15
+    // MODE TEST : déclenche le glitch à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
   // Vermicelles colorés (petites capsules) qui tombent en voletant.
   const [sprinkles] = useState(() =>
     Array.from({ length: 30 }, () => ({
@@ -5753,7 +6807,10 @@ function CandyDecor() {
     })),
   )
   return (
-    <div className="candy-decor" aria-hidden>
+    <div className={`candy-decor${glitchRun !== null ? ' is-glitch' : ''}`} aria-hidden>
+      {/* Tout le contenu du décor dans une enveloppe : c'est ELLE que le glitch déchire (secousses
+          + dédoublement blanc/cyan), sur le modèle du bug d'écran de Slenderman. */}
+      <div className="candy-field">
       {/* Bokeh sucré (derrière). */}
       {bokeh.map((b, i) => (
         <span
@@ -5826,6 +6883,29 @@ function CandyDecor() {
           </span>
         </span>
       ))}
+      </div>
+      {/* SURPRISE « TURBO ! » : monté le temps de la séquence ; la clé React rejoue les
+          animations CSS à chaque passage. */}
+      {glitchRun !== null && (
+        <div className="candy-glitch" key={glitchRun}>
+          {/* Bandes arrachées : elles inversent la scène (blend `difference`) et sautent en pas. */}
+          <div className="cg-tear cg-tear--1" />
+          <div className="cg-tear cg-tear--2" />
+          <div className="cg-tear cg-tear--3" />
+          <div className="cg-tear cg-tear--4" />
+          <div className="cg-tear cg-tear--5" />
+          {/* Scanlines qui défilent en sautant (la signature du bug d'écran de Slenderman). */}
+          <div className="cg-scan" />
+          {/* La palette de Turbo : le rose bonbon vire au blanc-bleu glacé. */}
+          <div className="cg-turbo-tint" />
+          {/* Balayage d'écran cathodique qui descend en boucle. */}
+          <div className="cg-roll" />
+          {/* Son nom, en gros pixels, dédoublé rouge/cyan. */}
+          <div className="cg-name" data-text="TURBO">TURBO</div>
+          {/* Le pic de corruption. */}
+          <div className="cg-flash" />
+        </div>
+      )}
     </div>
   )
 }
@@ -6749,6 +7829,7 @@ export function VillainDecor({
   opponentVillain,
   objectivePct,
   timerRunning,
+  capturedStones,
 }: {
   /** Clé du vilain : `VillainKey` native OU id `custom-…` d'un vilain publié (les deux résolus par
    *  `villainDecor`). */
@@ -6762,13 +7843,16 @@ export function VillainDecor({
   /** La partie « tourne » (même condition que le `GameTimer`) — le décor `atmosfear` y synchronise
    *  le démarrage de son minuteur. */
   timerRunning?: boolean
+  /** `cardId` des Pierres d'Infinité CAPTURÉES (zone Compétences) de CE camp — utilisées par le décor
+   *  `titan` (Thanos) : chaque gemme du Gantelet ne s'allume que si sa Pierre est de la liste. */
+  capturedStones?: string[]
 }) {
   const decor = villainDecor(villain)
   if (!decor) return null
   // Côté fourni à tous les décors (abonnement au bus de surprise du mode test).
   return (
     <DecorSideContext.Provider value={side ?? 'left'}>
-      {renderDecorBody(decor, side, objectivePct, timerRunning, opponentVillain)}
+      {renderDecorBody(decor, side, objectivePct, timerRunning, opponentVillain, capturedStones)}
     </DecorSideContext.Provider>
   )
 }
@@ -7500,6 +8584,95 @@ const FEL_VAPOR_VIOLET =
 // Couleurs des cendres montantes : vert fel (majorité) et violet du Vide (accent).
 const FEL_ASH_GREEN = ['#8dff6b', '#a6ff7c', '#6bff5a', '#c4ffb0', '#7cff8f']
 const FEL_ASH_VIOLET = ['#c98bff', '#b164ff', '#e0b0ff']
+// Mer de LAVE FEL au pied de la colonne (hauteur de la nappe + nb de bulles qui la crèvent).
+const FEL_LAVA_HEIGHT_VH = 44
+const FEL_LAVA_BUBBLES = 22
+
+/** Silhouette d'une VAGUE de lave, en SVG encodé en data-URI (aucun fichier). Le tracé sert deux
+ *  fois : rempli d'un dégradé de croûte sombre (le corps de la vague) puis repassé au trait clair
+ *  (la LÈVRE en fusion qui court sur la crête). Deux profils (`variant`) — chacun combine deux
+ *  longueurs d'onde pour ne pas ressembler à une sinusoïde parfaite —, tous deux BOUCLABLES : le
+ *  tracé part et revient à la même hauteur, donc la répétition horizontale est invisible. */
+function felWaveUrl(variant: 0 | 1, lip: string, lipWidth: number): string {
+  // viewBox 240 × 60, étiré ensuite par `background-size` (preserveAspectRatio='none').
+  const crest =
+    variant === 0
+      ? 'M0,30 C18,14 38,11 58,21 C76,30 90,45 114,43 C137,41 149,19 173,17 C197,15 215,33 240,30'
+      : 'M0,26 C26,33 42,45 66,41 C88,37 98,15 124,13 C150,11 160,30 186,32 C208,34 220,20 240,26'
+  const svg =
+    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 60' preserveAspectRatio='none'>` +
+    `<defs><linearGradient id='c' x1='0' y1='0' x2='0' y2='1'>` +
+    `<stop offset='0' stop-color='#24501d'/><stop offset='0.3' stop-color='#0e1c0c'/>` +
+    `<stop offset='1' stop-color='#070d06'/></linearGradient></defs>` +
+    `<path d='${crest} L240,60 L0,60 Z' fill='url(#c)'/>` +
+    `<path d='${crest}' fill='none' stroke='${lip}' stroke-width='${lipWidth}' stroke-linecap='round'/>` +
+    `</svg>`
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+}
+
+/** Les VAGUES de la mer de lave, du large (en haut, petites et lentes) jusqu'aux rives proches (en
+ *  bas, amples et rapides). Rendues dans cet ordre : chaque vague RECOUVRE la précédente jusqu'au
+ *  bas de la mer → parallaxe, et surtout aucune bande ne se termine par une coupe horizontale.
+ *  `top` = hauteur de la crête au-dessus du bas de la mer, `amp` = hauteur de la houle, `period` =
+ *  longueur d'onde (vh) ; `dur` en s, une vague sur deux remonte le courant. */
+const FEL_LAVA_WAVES = [
+  { top: 38, amp: 5, period: 26, dur: 64, back: false, variant: 0, lip: 'rgba(190,255,160,0.75)', lw: 2, op: 0.85 },
+  { top: 33.5, amp: 7.5, period: 35, dur: 48, back: true, variant: 1, lip: 'rgba(180,255,150,0.85)', lw: 2.4, op: 0.9 },
+  { top: 27, amp: 10, period: 45, dur: 36, back: false, variant: 0, lip: 'rgba(200,255,170,0.9)', lw: 2.8, op: 0.95 },
+  { top: 19, amp: 14, period: 60, dur: 27, back: true, variant: 1, lip: 'rgba(215,255,185,0.95)', lw: 3.2, op: 1 },
+] as const
+// Couleur de fond de la vague sous sa houle : EXACTEMENT le dernier `stop` du dégradé de
+// `felWaveUrl`, pour que le remplissage prolonge le SVG sans raccord visible.
+const FEL_WAVE_BODY = '#070d06'
+
+// SURPRISE « LE PORTAIL DES TÉNÈBRES ». Le CONTOUR de la colonne devient l'arche du portail :
+// le pourtour s'embrase de fel, l'intérieur s'ouvre sur L'ESPACE (Draenor vu depuis le Vide), et
+// des feux / brumes verts nés au bord sont ASPIRÉS en spirale vers le centre. Jalons (ms depuis
+// le début) — à garder en phase avec les transitions CSS de `.fel-gate--*`.
+const FEL_GATE_CHARGE_MS = 1600 // l'arche s'allume (le fel court le long du contour)
+const FEL_GATE_OPEN_MS = 3000 // l'intérieur se déchire : l'espace apparaît (flash)
+const FEL_GATE_SUCK_MS = 8600 // fin de l'aspiration → le portail se referme
+const FEL_GATE_DUR_MS = 10600 // fin de la séquence (retour au décor normal)
+const FEL_GATE_GAP_MIN_MS = 60_000 // entre deux ouvertures (c'est une SURPRISE : c'est rare)
+const FEL_GATE_GAP_MAX_MS = 110_000
+const FEL_GATE_MOTES = 38 // feux / brumes aspirés vers le centre
+const FEL_GATE_STARS = 70 // étoiles du fond spatial vu au travers du portail
+
+/** Un feu / une brume de gangrené aspiré vers le centre du portail : il naît sur le CONTOUR
+ *  (position de départ en % depuis le centre) et se rue vers le cœur en tournant. */
+type FelGateMote = {
+  fx: number // % de la largeur de la colonne (départ, depuis le centre : ±50 = le bord)
+  fy: number // % de la hauteur
+  size: number // vh
+  dur: number // s (temps de chute vers le cœur)
+  delay: number // s (négatif : flux déjà en cours → aucun « pop » à l'ouverture)
+  spin: number // deg (spirale : rotation du trajet pendant la chute)
+  violet: boolean // accent du Vide
+  flame: boolean // feu net (petit et vif) plutôt que brume (large et floue)
+}
+
+/** Tire les feux / brumes du portail : départs répartis sur tout le pourtour de la colonne
+ *  (un bord tiré au sort, l'autre coordonnée libre) → l'aspiration vient de partout. */
+function buildFelGateMotes(): FelGateMote[] {
+  return Array.from({ length: FEL_GATE_MOTES }, (_, i) => {
+    // Bord de départ : on plaque une coordonnée au bord (±48 %) et on laisse l'autre libre.
+    const vertical = Math.random() < 0.62 // la colonne est haute : plus de départs par les grands côtés
+    const edge = (Math.random() < 0.5 ? -1 : 1) * (44 + Math.random() * 10)
+    const free = (Math.random() - 0.5) * 96
+    const flame = Math.random() < 0.55
+    const dur = 2.6 + Math.random() * 2.6
+    return {
+      fx: vertical ? free : edge,
+      fy: vertical ? edge : free,
+      size: flame ? 2 + Math.random() * 2.4 : 6 + Math.random() * 8, // vh
+      dur,
+      delay: -((i / FEL_GATE_MOTES) * dur * 2) - Math.random() * 1.2, // s (étagé → flux continu)
+      spin: (Math.random() < 0.5 ? -1 : 1) * (25 + Math.random() * 70), // deg
+      violet: Math.random() < 0.24,
+      flame,
+    }
+  })
+}
 
 function FelGateDecor() {
   // Volutes de gangrené qui montent du sol (réutilise le keyframe `vaporRise`), étagées → colonnes
@@ -7535,55 +8708,224 @@ function FelGateDecor() {
       }
     }),
   )
+  // Bulles de lave fel : elles gonflent puis CRÈVENT la surface de la mer de lave. Réparties sur
+  // toute la largeur et étagées en hauteur dans la nappe (plus bas = plus proche = plus grosse).
+  const [lavaBubbles] = useState(() =>
+    Array.from({ length: FEL_LAVA_BUBBLES }, () => {
+      const depth = Math.random() // 0 = au fond (loin, petite), 1 = au premier plan (grosse)
+      return {
+        left: Math.random() * 100, // %
+        // Cantonnées au HAUT de la nappe : le bandeau du joueur masque le bas de la colonne, une
+        // bulle qui crève en dessous ne se verrait jamais.
+        bottom: (0.95 - depth * 0.42) * FEL_LAVA_HEIGHT_VH, // vh
+        size: 1.2 + depth * 3.4, // vh
+        dur: 2.4 + Math.random() * 3.4, // s (gonfle → crève)
+        delay: -(Math.random() * 6), // s
+      }
+    }),
+  )
+  // Feux / brumes aspirés et étoiles du fond spatial : tirés une fois au montage (le portail
+  // rejoue toujours le même ciel ; les trajets bouclent en CSS tant qu'il est ouvert).
+  const [gateMotes] = useState(buildFelGateMotes)
+  const [gateStars] = useState(() =>
+    Array.from({ length: FEL_GATE_STARS }, () => ({
+      left: Math.random() * 100, // %
+      top: Math.random() * 100, // %
+      size: 1 + Math.random() * 2.4, // px
+      op: 0.35 + Math.random() * 0.6,
+      dur: 2.4 + Math.random() * 4, // s (scintillement)
+      delay: -(Math.random() * 6), // s
+    })),
+  )
+
+  // SURPRISE « le Portail des Ténèbres ». Phases : `charge` = l'arche s'embrase le long du contour ;
+  // `open` = l'intérieur se déchire sur l'espace (flash) ; `suck` = les feux de gangrené sont aspirés
+  // vers le cœur ; `close` = le portail se referme. Timer interne (rare), aussi tiré par l'outil de test.
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  const [gate, setGate] = useState<{ seq: number; phase: 'charge' | 'open' | 'suck' | 'close' } | null>(null)
+  useEffect(() => {
+    let next: ReturnType<typeof setTimeout>
+    const steps: ReturnType<typeof setTimeout>[] = []
+    let seq = 0
+    const gap = () => FEL_GATE_GAP_MIN_MS + Math.random() * (FEL_GATE_GAP_MAX_MS - FEL_GATE_GAP_MIN_MS)
+    // Ne change de phase que si la séquence en cours est toujours celle qu'on a lancée.
+    const phase = (s: number, p: 'open' | 'suck' | 'close', at: number) =>
+      steps.push(setTimeout(() => setGate((g) => (g && g.seq === s ? { ...g, phase: p } : g)), at))
+    const fire = (fireRef.current = () => {
+      clearTimeout(next) // (re)déclenchement manuel : on repart d'un cycle propre
+      for (const t of steps.splice(0)) clearTimeout(t)
+      const s = seq++
+      setGate({ seq: s, phase: 'charge' })
+      phase(s, 'open', FEL_GATE_CHARGE_MS)
+      phase(s, 'suck', FEL_GATE_OPEN_MS)
+      phase(s, 'close', FEL_GATE_SUCK_MS)
+      steps.push(setTimeout(() => setGate((g) => (g && g.seq === s ? null : g)), FEL_GATE_DUR_MS))
+      next = setTimeout(fire, FEL_GATE_DUR_MS + gap())
+    })
+    next = setTimeout(fire, gap())
+    return () => {
+      clearTimeout(next)
+      for (const t of steps) clearTimeout(t)
+    }
+  }, [])
+  // Portail ouvert (l'espace est visible) : l'ambiance de Draenor s'efface derrière le Vide.
+  const gateOpen = gate?.phase === 'open' || gate?.phase === 'suck'
+
   return (
     <div className="fel-decor" aria-hidden>
-      {/* Lueur fel VERTE pulsante (au sol, les lieux corrompus). */}
-      <div className="fel-glow" />
-      {/* Lueur VIOLETTE du Vide, sur un autre battement (l'appel des Anciens Dieux). */}
-      <div className="fel-glow-void" />
-      {/* Cendres de gangrené qui montent (montée > ondulation > scintillement). */}
-      {ashes.map((m, i) => (
-        <span
-          key={`ash-${i}`}
-          className="voodoo-mote-rise"
-          style={{ left: `${m.left}%`, animationDuration: `${m.dur}s`, animationDelay: `${m.delay}s` }}
-        >
-          <span
-            className="voodoo-mote-sway"
-            style={{ animationDuration: `${m.swayDur}s`, animationDelay: `${m.delay}s`, '--sway': `${m.sway}vw` } as CSSProperties}
-          >
+      <div className={`fel-ambient${gateOpen ? ' fel-ambient--gate' : ''}`}>
+        {/* MER DE LAVE FEL au pied de la colonne : bain en fusion sous des plaques de croûte qui
+            dérivent, crête incandescente à l'horizon, et bulles qui crèvent la surface. */}
+        <div className="fel-lava" style={{ height: `${FEL_LAVA_HEIGHT_VH}vh` }}>
+          <div className="fel-lava-shore" />
+          {FEL_LAVA_WAVES.map((w, i) => (
             <span
-              className="voodoo-mote"
+              key={`flw-${i}`}
+              className="fel-lava-wave"
               style={{
-                width: `${m.size}px`,
-                height: `${m.size}px`,
-                opacity: m.op,
-                background: m.color,
-                animationDuration: `${m.twkDur}s`,
-                animationDelay: `${m.twkDelay}s`,
-                '--mote-color': m.color,
+                height: `${w.top}vh`,
+                opacity: w.op,
+                // La houle en haut, puis un aplat de croûte qui descend jusqu'au bas de la mer.
+                backgroundImage: `${felWaveUrl(w.variant, w.lip, w.lw)}, linear-gradient(${FEL_WAVE_BODY}, ${FEL_WAVE_BODY})`,
+                backgroundSize: `${w.period}vh ${w.amp}vh, 100% 100%`,
+                animationDuration: `${w.dur}s`,
+                animationDirection: w.back ? 'reverse' : 'normal',
+                // Le défilement fait EXACTEMENT une longueur d'onde : la boucle est invisible.
+                '--period': `${w.period}vh`,
+                '--amp': `${w.amp}vh`,
               } as CSSProperties}
             />
+          ))}
+          {lavaBubbles.map((b, i) => (
+            <span
+              key={`flb-${i}`}
+              className="fel-lava-bubble"
+              style={{
+                left: `${b.left}%`,
+                bottom: `${b.bottom}vh`,
+                width: `${b.size}vh`,
+                height: `${b.size * 0.6}vh`,
+                animationDuration: `${b.dur}s`,
+                animationDelay: `${b.delay}s`,
+              }}
+            />
+          ))}
+        </div>
+        {/* Lueur fel VERTE pulsante (au sol, les lieux corrompus). */}
+        <div className="fel-glow" />
+        {/* Lueur VIOLETTE du Vide, sur un autre battement (l'appel des Anciens Dieux). */}
+        <div className="fel-glow-void" />
+        {/* Cendres de gangrené qui montent (montée > ondulation > scintillement). */}
+        {ashes.map((m, i) => (
+          <span
+            key={`ash-${i}`}
+            className="voodoo-mote-rise"
+            style={{ left: `${m.left}%`, animationDuration: `${m.dur}s`, animationDelay: `${m.delay}s` }}
+          >
+            <span
+              className="voodoo-mote-sway"
+              style={{ animationDuration: `${m.swayDur}s`, animationDelay: `${m.delay}s`, '--sway': `${m.sway}vw` } as CSSProperties}
+            >
+              <span
+                className="voodoo-mote"
+                style={{
+                  width: `${m.size}px`,
+                  height: `${m.size}px`,
+                  opacity: m.op,
+                  background: m.color,
+                  animationDuration: `${m.twkDur}s`,
+                  animationDelay: `${m.twkDelay}s`,
+                  '--mote-color': m.color,
+                } as CSSProperties}
+              />
+            </span>
           </span>
-        </span>
-      ))}
-      {/* Volutes de gangrené (par-dessus les cendres). */}
-      {vapor.map((p, i) => (
-        <span
-          key={`fvap-${i}`}
-          className="fel-vapor"
-          style={{
-            left: `${p.left}%`,
-            width: `${p.size}vh`,
-            height: `${p.size}vh`,
-            background: p.violet ? FEL_VAPOR_VIOLET : FEL_VAPOR_GREEN,
-            animationDuration: `${p.dur}s`,
-            animationDelay: `${p.delay}s`,
-            '--sx': `${p.sx}vw`,
-            '--vop': p.op,
-          } as CSSProperties}
-        />
-      ))}
+        ))}
+        {/* Volutes de gangrené (par-dessus les cendres). */}
+        {vapor.map((p, i) => (
+          <span
+            key={`fvap-${i}`}
+            className="fel-vapor"
+            style={{
+              left: `${p.left}%`,
+              width: `${p.size}vh`,
+              height: `${p.size}vh`,
+              background: p.violet ? FEL_VAPOR_VIOLET : FEL_VAPOR_GREEN,
+              animationDuration: `${p.dur}s`,
+              animationDelay: `${p.delay}s`,
+              '--sx': `${p.sx}vw`,
+              '--vop': p.op,
+            } as CSSProperties}
+          />
+        ))}
+      </div>
+      {/* SURPRISE : LE PORTAIL DES TÉNÈBRES s'ouvre — le CONTOUR de la colonne EST l'arche. */}
+      {gate && (
+        <div className={`fel-gate fel-gate--${gate.phase}`}>
+          {/* L'AU-DELÀ : l'espace vu au travers du portail (nébuleuse fel + étoiles). */}
+          <div className="fel-gate-space">
+            {gateStars.map((s, i) => (
+              <span
+                key={`fgs-${i}`}
+                className="fel-gate-star"
+                style={{
+                  left: `${s.left}%`,
+                  top: `${s.top}%`,
+                  width: `${s.size}px`,
+                  height: `${s.size}px`,
+                  '--op': s.op,
+                  animationDuration: `${s.dur}s`,
+                  animationDelay: `${s.delay}s`,
+                } as CSSProperties}
+              />
+            ))}
+          </div>
+          {/* LE MAELSTRÖM : les bras de fel (verts) et du Vide (violet) qui tournent autour du cœur. */}
+          <div className="fel-gate-vortex">
+            <div className="fel-gate-arm fel-gate-arm--a" />
+            <div className="fel-gate-arm fel-gate-arm--b" />
+            <div className="fel-gate-arm fel-gate-arm--c" />
+          </div>
+          {/* Le CŒUR : l'œil vert-blanc du portail, qui bat et avale tout. */}
+          <div className="fel-gate-core" />
+          {/* Feux et brumes de gangrené ASPIRÉS depuis le contour vers le cœur (spirale). */}
+          <div className="fel-gate-pull">
+            {gateMotes.map((m, i) => (
+              <span
+                key={`fgm-${i}`}
+                className="fel-gate-swirl"
+                style={{
+                  animationDuration: `${m.dur}s`,
+                  animationDelay: `${m.delay}s`,
+                  '--spin': `${m.spin}deg`,
+                } as CSSProperties}
+              >
+                <span
+                  className={`fel-gate-mote${m.flame ? ' fel-gate-mote--flame' : ''}`}
+                  style={{
+                    width: `${m.size}vh`,
+                    height: `${m.size}vh`,
+                    background: m.violet ? FEL_VAPOR_VIOLET : FEL_VAPOR_GREEN,
+                    // Flou proportionnel à la taille : une brume se fond, un feu reste net.
+                    '--mb': `${m.flame ? 0.3 : m.size / 3.4}vh`,
+                    // Départ sur le contour : % de la COLONNE (le plan entier se contracte vers
+                    // le centre → le feu converge sur le cœur en tournant).
+                    left: `calc(50% + ${m.fx}%)`,
+                    top: `calc(50% + ${m.fy}%)`,
+                  } as CSSProperties}
+                />
+              </span>
+            ))}
+          </div>
+          {/* L'ARCHE : le contour de la colonne s'embrase (double liseré + halo fel). */}
+          <div className="fel-gate-rim" />
+          {/* Le fel qui COURT le long de l'arche (dégradé conique en rotation, masqué en anneau). */}
+          <div className="fel-gate-rim-run" />
+          {/* Flash de la déchirure (l'instant où l'espace apparaît). */}
+          <div className="fel-gate-flash" />
+        </div>
+      )}
     </div>
   )
 }
@@ -8069,6 +9411,51 @@ const DIO_NUMERAL_GLYPHS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'I
 const DIO_NUMERAL_GOLD = ['#ffe08a', '#ffd257', '#f5c542', '#ffeab0']
 const DIO_NUMERAL_MAGENTA = ['#e06bff', '#c94dff', '#ff7ad4']
 
+// SURPRISE « ZA WARUDO ! » — L'ARRÊT DU TEMPS. Jalons (ms depuis le début de la séquence) : à garder
+// en phase avec les durées CSS de `.dio-stop*`.
+const DIO_STOP_WIND_MS = 3000 // amorce : le temps DÉFILE (la trotteuse s'emballe, l'or monte en puissance)
+const DIO_STOP_COUNT_DELAY_MS = 700 // après le GEL : temps mort avant le 1er chiffre du décompte
+const DIO_STOP_COUNT = 9 // les neuf secondes de temps arrêté (I → IX)
+const DIO_STOP_TICK_MS = 1000 // une seconde arrêtée par chiffre
+// Le temps reprend son cours juste après le dernier chiffre (amorce + attente + les neuf secondes).
+const DIO_STOP_RESUME_MS = DIO_STOP_WIND_MS + DIO_STOP_COUNT_DELAY_MS + DIO_STOP_COUNT * DIO_STOP_TICK_MS + 600
+const DIO_STOP_DUR_MS = DIO_STOP_RESUME_MS + 1800 // fin de la séquence (décor redevenu normal)
+const DIO_STOP_GAP_MIN_MS = 60_000 // entre deux arrêts du temps (c'est une SURPRISE : c'est rare)
+const DIO_STOP_GAP_MAX_MS = 110_000
+const DIO_STOP_SHARDS = 18 // éclats de temps suspendus, parfaitement immobiles
+const DIO_STOP_LINES = 16 // lignes de vitesse (manga) figées, en éventail depuis l'horloge
+
+/** Un éclat de temps suspendu pendant l'arrêt : losange doré (ou magenta) qui apparaît puis ne
+ *  bouge PLUS DU TOUT — c'est tout le propos de la séquence. */
+type DioShard = { left: number; top: number; size: number; rot: number; op: number; delay: number; magenta: boolean }
+
+function buildDioShards(): DioShard[] {
+  return Array.from({ length: DIO_STOP_SHARDS }, () => ({
+    left: 4 + Math.random() * 92, // %
+    top: 4 + Math.random() * 92, // %
+    size: 1.1 + Math.random() * 2.6, // vh
+    rot: Math.random() * 360, // deg (orientation figée)
+    op: 0.4 + Math.random() * 0.5,
+    delay: Math.random() * 0.5, // s (ils se figent les uns après les autres)
+    magenta: Math.random() < 0.25,
+  }))
+}
+
+/** Une ligne de vitesse figée : elle part de l'horloge (angle) et file vers l'extérieur (distance +
+ *  longueur), comme les traits d'impact d'une planche de manga. */
+type DioSpeedLine = { ang: number; dist: number; len: number; thick: number; op: number; delay: number }
+
+function buildDioSpeedLines(): DioSpeedLine[] {
+  return Array.from({ length: DIO_STOP_LINES }, () => ({
+    ang: Math.random() * 360, // deg
+    dist: 12 + Math.random() * 26, // vh (départ, depuis le centre du cadran)
+    len: 10 + Math.random() * 34, // vh
+    thick: 0.12 + Math.random() * 0.3, // vh (trait très fin)
+    op: 0.25 + Math.random() * 0.45,
+    delay: Math.random() * 0.35, // s
+  }))
+}
+
 function TheWorldDecor() {
   // Chiffres romains flottants : montent en ondulant (réutilise les motes de Facilier), l'enfant est un
   // GLYPHE romain (au lieu d'une pastille) qui scintille. Majorité dorée, accent magenta. Figés au montage.
@@ -8096,8 +9483,53 @@ function TheWorldDecor() {
     const ang = (i * Math.PI) / 6 // 30° par cran
     return { n, left: 50 + Math.sin(ang) * 40, top: 50 - Math.cos(ang) * 40 }
   })
+  // Éclats de temps & lignes de vitesse de la surprise : tirés une fois au montage (l'arrêt du temps
+  // rejoue toujours la même « photo » du monde figé).
+  const [shards] = useState(buildDioShards)
+  const [speedLines] = useState(buildDioSpeedLines)
+
+  // SURPRISE « ZA WARUDO ! » — l'ARRÊT DU TEMPS. Phases : `wind` = le temps s'emballe (la trotteuse
+  // vrille, l'or monte) ; `stop` = TOUT SE FIGE (les couches du décor sont mises en PAUSE — donc elles
+  // reprendront exactement là où elles se sont arrêtées — le monde se désature, et les cinq secondes
+  // s'affichent en chiffres romains dans le cadran) ; `resume` = le temps reprend son cours (2ᵉ flash,
+  // l'horloge rattrape en vrillant). Timer interne (rare), aussi tiré par l'outil de test.
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  const [stop, setStop] = useState<{ seq: number; phase: 'wind' | 'stop' | 'resume' } | null>(null)
+  useEffect(() => {
+    // Pas d'arrêt du temps en reduced-motion (minuterie non lancée, et le calque est masqué en CSS).
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    const steps: ReturnType<typeof setTimeout>[] = []
+    let seq = 0
+    const gap = () => DIO_STOP_GAP_MIN_MS + Math.random() * (DIO_STOP_GAP_MAX_MS - DIO_STOP_GAP_MIN_MS)
+    // Ne change de phase que si la séquence en cours est toujours celle qu'on a lancée.
+    const phase = (s: number, p: 'stop' | 'resume', at: number) =>
+      steps.push(setTimeout(() => setStop((v) => (v && v.seq === s ? { ...v, phase: p } : v)), at))
+    const fire = (fireRef.current = () => {
+      clearTimeout(next) // (re)déclenchement manuel : on repart d'un cycle propre
+      for (const t of steps.splice(0)) clearTimeout(t)
+      const s = seq++
+      setStop({ seq: s, phase: 'wind' })
+      phase(s, 'stop', DIO_STOP_WIND_MS) // LE GEL
+      phase(s, 'resume', DIO_STOP_RESUME_MS) // « Le temps reprend son cours. »
+      steps.push(setTimeout(() => setStop((v) => (v && v.seq === s ? null : v)), DIO_STOP_DUR_MS))
+      next = setTimeout(fire, DIO_STOP_DUR_MS + gap())
+    })
+    next = setTimeout(fire, gap())
+    return () => {
+      clearTimeout(next)
+      for (const t of steps) clearTimeout(t)
+    }
+  }, [])
+  // Le temps est ARRÊTÉ : on met en pause (et on désature) toutes les couches du décor.
+  const frozen = stop?.phase === 'stop'
+
   return (
-    <div className="dio-decor" aria-hidden>
+    <div
+      className={`dio-decor${frozen ? ' dio-decor--stopped' : ''}${stop?.phase === 'wind' ? ' dio-decor--winding' : ''}`}
+      aria-hidden
+    >
       {/* Aura dorée pulsante (le rayonnement de The World). */}
       <div className="dio-aura" />
       {/* Grand mandala d'horloge qui tourne lentement en arrière-plan (anneaux + graduations dorées).
@@ -8144,6 +9576,73 @@ function TheWorldDecor() {
         <span className="dio-hand dio-hand--s" />
         <span className="dio-clock-center" />
       </div>
+      {/* SURPRISE « ZA WARUDO ! » : le temps défile de plus en plus vite, puis TOUT S'ARRÊTE neuf
+          secondes. Aucun texte : le flash GRIS et l'horloge disent tout. */}
+      {stop && (
+        <div className={`dio-stop dio-stop--${stop.phase}`}>
+          {/* Amorce : l'or s'accumule autour du cadran (la charge de The World). */}
+          <div className="dio-stop-charge" />
+          {/* La trotteuse vrille : pendant l'amorce (le temps défile) ET au retour (elle rattrape les
+              neuf secondes perdues, puis s'efface). Masquée pendant le gel — plus rien ne tourne. */}
+          {stop.phase !== 'stop' && (
+            <div className={`dio-stop-spin${stop.phase === 'resume' ? ' dio-stop-spin--back' : ''}`} />
+          )}
+          {/* LE FLASH : GRIS au gel (le monde perd ses couleurs), DORÉ au retour (elles reviennent).
+              La clé de phase le fait rejouer à chaque bascule. */}
+          {stop.phase !== 'wind' && (
+            <div
+              key={stop.phase}
+              className={`dio-stop-flash${stop.phase === 'resume' ? ' dio-stop-flash--back' : ''}`}
+            />
+          )}
+          {/* Onde de choc partie du cadran : seulement au gel. */}
+          {frozen && <div className="dio-stop-wave" />}
+          {/* Le monde arrêté : voile indigo froid (avec la désaturation des couches, la vie a quitté
+              l'image), lignes de vitesse figées et éclats de temps suspendus. */}
+          <div className="dio-stop-veil" />
+          {speedLines.map((l, i) => (
+            <span
+              key={`dsl-${i}`}
+              className="dio-stop-line"
+              style={{
+                height: `${l.len}vh`,
+                width: `${l.thick}vh`,
+                transitionDelay: `${l.delay}s`,
+                '--ang': `${l.ang}deg`,
+                '--dist': `${l.dist}vh`,
+                '--op': l.op,
+              } as CSSProperties}
+            />
+          ))}
+          {shards.map((s, i) => (
+            <span
+              key={`dsh-${i}`}
+              className={`dio-stop-shard${s.magenta ? ' dio-stop-shard--magenta' : ''}`}
+              style={{
+                left: `${s.left}%`,
+                top: `${s.top}%`,
+                width: `${s.size}vh`,
+                height: `${s.size * 1.9}vh`,
+                transitionDelay: `${s.delay}s`,
+                '--rot': `${s.rot}deg`,
+                '--op': s.op,
+              } as CSSProperties}
+            />
+          ))}
+          {/* Le décompte des neuf secondes arrêtées, en chiffres romains, DANS le cadran figé (qui
+              s'éclipse pendant ce temps) : un chiffre par seconde, I → IX. */}
+          {frozen &&
+            DIO_NUMERAL_GLYPHS.slice(0, DIO_STOP_COUNT).map((g, i) => (
+              <span
+                key={`dsc-${i}`}
+                className="dio-stop-count"
+                style={{ animationDelay: `${DIO_STOP_COUNT_DELAY_MS + i * DIO_STOP_TICK_MS}ms` }}
+              >
+                {g}
+              </span>
+            ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -8567,12 +10066,1730 @@ function MonopolyDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'mo
   )
 }
 
+// ---------------------------------------------------------------------------
+// Décor `otherworld` (Pyramid Head — Silent Hill) : L'AUTRE MONDE. Un ciel gris SOMBRE et BRUMEUX
+// (nappes de brume qui dérivent) d'où pendent des CHAÎNES et des CAGES suspendues qui se balancent
+// très lentement, tandis que des BRAISES ROUGES montent du bas en scintillant.
+// ---------------------------------------------------------------------------
+// Les 3 cages, avec leur ratio natif (largeur/hauteur du PNG) → la hauteur se déduit de la largeur,
+// sans déformer l'image. Chaque cage embarque déjà sa chaîne d'accrochage vers le haut.
+const OW_CAGES = [
+  { img: '/animations/cage-1.png', ratio: 123 / 485 },
+  { img: '/animations/cage-2.png', ratio: 181 / 888 },
+  { img: '/animations/cage-3.png', ratio: 251 / 1009 },
+]
+const OW_CHAIN_RATIO = 99 / 1025 // ratio natif de chaine.png
+const OW_CHAINS = 7 // chaînes nues qui pendent du haut
+const OW_FOG = 6 // nappes de brume qui dérivent
+const OW_EMBERS = 40 // braises rouges qui montent
+// SURPRISE « le Passage à l'Autre Monde » (Silent Hill) : la sirène monte, le monde BASCULE et tout
+// L'ARRIÈRE-PLAN vire au rouge sang (ciel, brume, cages, chaînes), puis revient au gris. Les couches
+// restent DANS le décor : l'UI (plateau, cartes, panneaux) n'est pas touchée. Phases : `siren` (le
+// rouge s'installe) → `held` (basculé) → `back` (retour). Secousse coupée en `prefers-reduced-motion`.
+const OW_SHIFT_TEST = false // true → cadence accélérée pour régler
+const OW_SHIFT_SIREN_MS = 2200 // montée de la sirène (doit correspondre à `owShiftIn`)
+const OW_SHIFT_HOLD_MS = 7000 // le monde reste basculé
+const OW_SHIFT_BACK_MS = 2600 // retour au gris (doit correspondre à `owShiftOut`)
+const OW_SHIFT_QUAKE_MS = 700 // secousse de la bascule (doit correspondre à `owShiftQuake`)
+const OW_SHIFT_GAP_MIN_MS = OW_SHIFT_TEST ? 6000 : 100_000 // 1 min 40 (c'est une SURPRISE : c'est rare)
+const OW_SHIFT_GAP_MAX_MS = OW_SHIFT_TEST ? 11_000 : 190_000 // 3 min 10
+const OW_STORM_EMBERS = 70 // braises de la tempête (s'ajoutent au filet permanent)
+const OW_BLOOD = 10 // coulures de sang qui suintent du haut
+const OW_BLOOD_STAINS = 9 // taches de sang imbibées dans le grillage (elles ne coulent pas)
+
+/** Les couches ROUGES de la bascule. Elles restent DANS le décor (z -1) : seul l'ARRIÈRE-PLAN vire au
+ *  rouge, l'UI (plateau, cartes, panneaux) n'est pas touchée. `.ow-decor` porte `isolation: isolate`
+ *  pour que les `mix-blend-mode` se mélangent au décor et à lui seul. Posées EN DERNIER dans le
+ *  décor : le mélange s'applique à tout ce qui a été peint avant (ciel, brume, chaînes, cages…). */
+function OtherworldShift({ phase }: { phase: 'siren' | 'held' | 'back' }) {
+  // Tirés à CHAQUE bascule (le composant est monté/démonté avec elle) → deux passages ne se
+  // ressemblent jamais. La tempête de braises : une nuée dense et rapide, bien plus vive que le
+  // filet permanent. Les coulures de sang : elles descendent du haut puis sèchent en place.
+  const [storm] = useState(() =>
+    Array.from({ length: OW_STORM_EMBERS }, () => ({
+      left: Math.random() * 100, // %
+      size: 1.6 + Math.random() * 3.4, // px
+      dur: 3 + Math.random() * 4, // s (montée bien plus rapide qu'au repos)
+      delay: -(Math.random() * 6), // s
+      drift: (Math.random() - 0.5) * 22, // vw (dérive large : ça tourbillonne)
+      rise: 70 + Math.random() * 50, // vh
+      op: 0.55 + Math.random() * 0.45,
+    })),
+  )
+  const [blood] = useState(() =>
+    Array.from({ length: OW_BLOOD }, () => {
+      const w = 0.8 + Math.random() * 1.7 // vh (épaisseur : plus large qu'une chaîne, pour ne pas s'y confondre)
+      const h = 16 + Math.random() * 42 // vh (jusqu'où elle descend)
+      return {
+        left: 2 + Math.random() * 96, // %
+        w,
+        h,
+        dur: 2.5 + Math.random() * 3.5, // s (elle coule, elle ne tombe pas)
+        delay: Math.random() * 2.4, // s (elles ne partent pas toutes ensemble)
+        op: 0.75 + Math.random() * 0.25,
+        // Renflements noyés dans la traînée (le « goo » les y fond) : l'épaisseur ondule.
+        bulges: Array.from({ length: 1 + Math.floor(Math.random() * 3) }, () => ({
+          top: 12 + Math.random() * 70, // % de la hauteur de la coulure
+          d: w * (1.25 + Math.random() * 0.75), // vh (diamètre du renflement)
+        })),
+        tip: w * (0.55 + Math.random() * 0.25), // vh (pointe plus étroite → la coulure s'effile)
+      }
+    }),
+  )
+  // TACHES imbibées dans le grillage (les parois « blood stained » de l'Autre Monde) : contours
+  // irréguliers, orientations variées, elles s'imprègnent sans couler.
+  const [stains] = useState(() =>
+    Array.from({ length: OW_BLOOD_STAINS }, () => ({
+      left: -4 + Math.random() * 104, // %
+      top: -4 + Math.random() * 96, // %
+      w: 6 + Math.random() * 16, // vh
+      ratio: 0.5 + Math.random() * 1.1, // hauteur = largeur × ratio
+      rot: Math.random() * 360, // deg (casse la répétition du contour)
+      delay: Math.random() * 1.8, // s
+      op: 0.35 + Math.random() * 0.45,
+    })),
+  )
+  return (
+    <>
+      {/* 1. Teinte : remplace la couleur en gardant la luminance → l'arrière-plan vire au rouge sans
+             s'aplatir (cages et chaînes restent lisibles en silhouette). */}
+      <div className={`ow-shift ow-shift--hue is-${phase}`} />
+      {/* 2. Brûlure : assombrit et sature (la rouille), surtout vers le bas et les bords. */}
+      <div className={`ow-shift ow-shift--burn is-${phase}`} />
+      {/* 3. La TEMPÊTE de braises : elle se lève dès la sirène et s'éteint avec le retour au gris. */}
+      <div className={`ow-shift is-${phase}`}>
+        {storm.map((e, i) => (
+          <span
+            key={`ow-storm-${i}`}
+            className="ow-ember ow-ember-storm"
+            style={{
+              left: `${e.left}%`,
+              width: `${e.size}px`,
+              height: `${e.size}px`,
+              animationDuration: `${e.dur}s`,
+              animationDelay: `${e.delay}s`,
+              '--drift': `${e.drift}vw`,
+              '--rise': `${e.rise}vh`,
+              '--op': e.op,
+            } as CSSProperties}
+          />
+        ))}
+      </div>
+      {/* 4. Effets de surface, montés SEULEMENT une fois le monde basculé : le GRILLAGE rouillé se
+             pose (le décor pèle), le SANG suinte PAR-DESSUS (il coule sur le treillis), puis grain
+             et vignette. */}
+      <div className={`ow-shift is-${phase}`}>
+        {phase !== 'siren' && (
+          <>
+            <div className="ow-shift-mesh" />
+            <div className="ow-shift-rust" />
+            {/* Le SANG, en un seul calque passé au filtre « goo » : sans lui, coulures et renflements
+                resteraient des formes géométriques nettes au lieu de fusionner. */}
+            <div className="ow-blood-layer">
+              <svg className="ow-goo-def" aria-hidden focusable="false">
+                <filter id="ow-goo">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+                  <feColorMatrix
+                    in="blur"
+                    type="matrix"
+                    values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9"
+                  />
+                </filter>
+              </svg>
+              {stains.map((s, i) => (
+                <span
+                  key={`ow-stain-${i}`}
+                  className="ow-blood-stain"
+                  style={{
+                    left: `${s.left}%`,
+                    top: `${s.top}%`,
+                    width: `${s.w}vh`,
+                    height: `${s.w * s.ratio}vh`,
+                    opacity: s.op,
+                    rotate: `${s.rot}deg`,
+                    animationDelay: `${s.delay}s`,
+                  }}
+                />
+              ))}
+              {blood.map((b, i) => (
+                <span
+                  key={`ow-blood-${i}`}
+                  className="ow-blood"
+                  style={{
+                    left: `${b.left}%`,
+                    width: `${b.w}vh`,
+                    opacity: b.op,
+                    animationDelay: `${b.delay}s`,
+                    '--h': `${b.h}vh`,
+                    '--dur': `${b.dur}s`,
+                  } as CSSProperties}
+                >
+                  <span className="ow-blood-run" style={{ '--h': `${b.h}vh` } as CSSProperties} />
+                  {b.bulges.map((g, j) => (
+                    <span
+                      key={`g-${j}`}
+                      className="ow-blood-bulge"
+                      style={{ top: `${g.top}%`, width: `${g.d}vh`, height: `${g.d}vh` }}
+                    />
+                  ))}
+                  {/* Pointe effilée, calée sur la fin de la traînée. */}
+                  <span
+                    className="ow-blood-tip"
+                    style={{ top: `calc(${b.h}vh - ${b.tip}vh)`, width: `${b.tip}vh`, height: `${b.tip}vh` }}
+                  />
+                </span>
+              ))}
+            </div>
+          </>
+        )}
+        <div className="ow-shift-grain" />
+        <div className="ow-shift-vignette" />
+      </div>
+    </>
+  )
+}
+
+function OtherworldDecor() {
+  const fireRef = useRef<() => void>(() => {}) // surprise : le Passage à l'Autre Monde
+  useSurpriseSub(fireRef)
+  // Chaînes nues suspendues au plafond. La chaîne garde son RATIO natif (sinon les maillons s'étirent
+  // en une corde lisse) : c'est donc la LARGEUR qui règle la longueur de la retombée — les chaînes
+  // proches sont larges et descendent bas, les lointaines fines et courtes (profondeur). Tirées une
+  // fois au montage, réparties en bandes pour ne pas se tasser au même endroit.
+  const [chains] = useState(() =>
+    Array.from({ length: OW_CHAINS }, (_, i) => {
+      const far = Math.random() < 0.45 // chaîne d'arrière-plan (plus pâle, plus fine, plus courte)
+      return {
+        left: (i * 100) / OW_CHAINS + Math.random() * (100 / OW_CHAINS), // % (une par bande)
+        w: (far ? 1.6 : 2.8) + Math.random() * (far ? 1.4 : 1.8), // vh → hauteur ≈ ×10.4 (16 à 48 vh)
+        swing: 0.6 + Math.random() * 1.6, // deg (balancement très léger)
+        dur: 9 + Math.random() * 7, // s
+        delay: -(Math.random() * 15), // s
+        flip: Math.random() < 0.5,
+        op: far ? 0.42 + Math.random() * 0.2 : 0.75 + Math.random() * 0.22,
+      }
+    }),
+  )
+  // Cages suspendues : une par image (+ une 4ᵉ reprise au hasard). On tire la HAUTEUR totale et le BAS
+  // de la retombée (la largeur s'en déduit par le ratio natif de l'image) : ainsi les cages descendent
+  // toutes aussi bas quelle que soit l'image, et leur chaîne d'accrochage sort du cadre par le haut.
+  const [cages] = useState(() =>
+    [...OW_CAGES, OW_CAGES[Math.floor(Math.random() * OW_CAGES.length)]].map((c, i) => {
+      const h = 34 + Math.random() * 12 // vh (hauteur totale image = chaîne + cage)
+      const bottom = 23 + Math.random() * 8 // vh (où s'arrête la cage, sous le haut de l'écran)
+      return {
+        ...c,
+        left: 12 + i * 24 + Math.random() * 10, // % (réparties sur la largeur, sans se superposer)
+        top: bottom - h, // vh (négatif : le haut de la chaîne sort du cadre)
+        w: h * c.ratio, // vh (largeur déduite → aucune déformation)
+        swing: 0.8 + Math.random() * 1.8, // deg
+        dur: 8 + Math.random() * 6, // s (balancement lourd, lent)
+        delay: -(Math.random() * 13), // s
+        flip: Math.random() < 0.5,
+        op: 0.65 + Math.random() * 0.3,
+      }
+    }),
+  )
+  // Nappes de brume grise : de larges taches douces qui dérivent latéralement en respirant.
+  const [fog] = useState(() =>
+    Array.from({ length: OW_FOG }, () => ({
+      left: -20 + Math.random() * 120, // %
+      top: Math.random() * 92, // %
+      w: 45 + Math.random() * 60, // vh
+      h: 16 + Math.random() * 22, // vh
+      drift: 3 + Math.random() * 7, // vw (amplitude de dérive)
+      dur: 22 + Math.random() * 20, // s (très lente)
+      delay: -(Math.random() * 30), // s
+      op: 0.1 + Math.random() * 0.14,
+    })),
+  )
+  // Braises rouges : montent du bas en dérivant et en s'éteignant (réutilise le principe des braises
+  // de la Fleur Rouge, en rouge sang).
+  const [embers] = useState(() =>
+    Array.from({ length: OW_EMBERS }, () => ({
+      left: Math.random() * 100, // %
+      size: 1.4 + Math.random() * 2.8, // px
+      dur: 7 + Math.random() * 8, // s (montée lente)
+      delay: -(Math.random() * 15), // s
+      drift: (Math.random() - 0.5) * 14, // vw (dérive latérale)
+      rise: 55 + Math.random() * 45, // vh (hauteur atteinte avant extinction)
+      op: 0.45 + Math.random() * 0.45,
+    })),
+  )
+  // SURPRISE « le Passage à l'Autre Monde », en PHASES (chaîne de timers, comme la Fleur Rouge de la
+  // jungle) : `siren` → `held` (la bascule, avec sa secousse) → `back` → rien.
+  const [shift, setShift] = useState<'siren' | 'held' | 'back' | null>(null)
+  const [quake, setQuake] = useState(false)
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = []
+    const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms))
+    const run = () => {
+      setShift('siren')
+      at(OW_SHIFT_SIREN_MS, () => {
+        setShift('held')
+        // La bascule : le décor tremble le temps de la secousse.
+        if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+          setQuake(true)
+          at(OW_SHIFT_QUAKE_MS, () => setQuake(false))
+        }
+      })
+      at(OW_SHIFT_SIREN_MS + OW_SHIFT_HOLD_MS, () => setShift('back'))
+      at(OW_SHIFT_SIREN_MS + OW_SHIFT_HOLD_MS + OW_SHIFT_BACK_MS, () => {
+        setShift(null)
+        at(OW_SHIFT_GAP_MIN_MS + Math.random() * (OW_SHIFT_GAP_MAX_MS - OW_SHIFT_GAP_MIN_MS), run)
+      })
+    }
+    at(OW_SHIFT_TEST ? 3000 : 45_000 + Math.random() * 35_000, run) // 1ʳᵉ bascule après ~45–80 s
+    fireRef.current = run // MODE TEST : déclenche la bascule à la demande.
+    return () => timers.forEach(clearTimeout)
+  }, [])
+  return (
+    <div className={`ow-decor${shift ? ' is-shifted' : ''}${quake ? ' is-shaking' : ''}`} aria-hidden>
+      {/* Nappes de brume grise qui dérivent (posées avant les suspensions : elles restent en fond). */}
+      {fog.map((f, i) => (
+        <span
+          key={`ow-fog-${i}`}
+          className="ow-fog"
+          style={{
+            left: `${f.left}%`,
+            top: `${f.top}%`,
+            width: `${f.w}vh`,
+            height: `${f.h}vh`,
+            animationDuration: `${f.dur}s`,
+            animationDelay: `${f.delay}s`,
+            '--drift': `${f.drift}vw`,
+            '--fog-op': f.op,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Chaînes nues qui pendent du plafond. L'image est RETOURNÉE (`scaleY(-1)`) : sa pointe effilée
+          se perd dans le plafond et ce sont les gros maillons qui pendent. L'enveloppe pose la
+          position + les miroirs ; l'enfant porte la silhouette et le balancement — son pivot passe
+          donc en `bottom center` (`is-flipped`), qui est le HAUT à l'écran une fois retourné. */}
+      {chains.map((c, i) => (
+        <span
+          key={`ow-chain-${i}`}
+          className="ow-chain"
+          style={{
+            left: `${c.left}%`,
+            width: `${c.w}vh`,
+            height: `${c.w / OW_CHAIN_RATIO}vh`,
+            transform: `translateX(-50%) scaleX(${c.flip ? -1 : 1}) scaleY(-1)`,
+          }}
+        >
+          <span
+            className="ow-hang is-flipped"
+            style={{
+              opacity: c.op,
+              backgroundImage: 'url(/animations/chaine.png)',
+              animationDuration: `${c.dur}s`,
+              animationDelay: `${c.delay}s`,
+              '--swing': `${c.swing}deg`,
+            } as CSSProperties}
+          />
+        </span>
+      ))}
+      {/* Cages suspendues qui se balancent lourdement (même mécanique que les chaînes). */}
+      {cages.map((c, i) => (
+        <span
+          key={`ow-cage-${i}`}
+          className="ow-cage"
+          style={{
+            left: `${c.left}%`,
+            top: `${c.top}vh`,
+            width: `${c.w}vh`,
+            height: `${c.w / c.ratio}vh`,
+            transform: `translateX(-50%) scaleX(${c.flip ? -1 : 1})`,
+          }}
+        >
+          <span
+            className="ow-hang"
+            style={{
+              opacity: c.op,
+              backgroundImage: `url(${c.img})`,
+              animationDuration: `${c.dur}s`,
+              animationDelay: `${c.delay}s`,
+              '--swing': `${c.swing}deg`,
+            } as CSSProperties}
+          />
+        </span>
+      ))}
+      {/* Lueur rouge sourde qui bat en bas (la rouille incandescente), sous les braises. */}
+      <div className="ow-glow" />
+      {/* Braises rouges qui montent en scintillant. */}
+      {embers.map((e, i) => (
+        <span
+          key={`ow-ember-${i}`}
+          className="ow-ember"
+          style={{
+            left: `${e.left}%`,
+            width: `${e.size}px`,
+            height: `${e.size}px`,
+            animationDuration: `${e.dur}s`,
+            animationDelay: `${e.delay}s`,
+            '--drift': `${e.drift}vw`,
+            '--rise': `${e.rise}vh`,
+            '--op': e.op,
+          } as CSSProperties}
+        />
+      ))}
+      {/* SURPRISE : la bascule rouge, posée EN DERNIER pour teinter tout l'arrière-plan (et lui seul). */}
+      {shift && <OtherworldShift phase={shift} />}
+    </div>
+  )
+}
+
+// Décor permanent : GRAND COUNCILWOMAN (Lilo & Stitch), kind `federation`.
+// LA PASSERELLE DU CROISEUR FÉDÉRAL, vue de l'orbite. Fond bleu profond + vignette, la TRAME
+// HEXAGONALE de son plateau (alvéoles sourdes, dont quelques-unes RESPIRENT), l'ARC DE LA PLANÈTE en
+// bas nimbé de son liseré d'ATMOSPHÈRE, des PANNEAUX HOLOGRAPHIQUES cyan dont les lignes clignotent,
+// et un BALAYAGE de scan qui descend périodiquement. 100 % CSS (aucun asset).
+// La trame est un vrai pavage : alvéoles POINTE EN HAUT, pas horizontal = largeur, pas vertical = 3/4
+// de la hauteur, rangées impaires décalées d'une demi-largeur. Tout est en `vh` (donc régulier quelle
+// que soit la largeur de colonne) et la grille est générée assez large pour déborder — le
+// `overflow: hidden` de la colonne la recadre.
+// ---------------------------------------------------------------------------
+const FED_HEX_W = 16 // vh (largeur d'une alvéole)
+const FED_HEX_H = FED_HEX_W * 1.1547 // vh (hauteur d'un hexagone pointe en haut : w × 2/√3)
+const FED_HEX_COLS = 9 // couvre ~144 vh de large (toute la colonne, même sur écran très large)
+const FED_HEX_ROWS = 10 // couvre ~125 vh de haut
+const FED_HEX_BREATHING = 16 // alvéoles qui respirent en permanence (console qui travaille)
+const FED_PANELS = 4 // panneaux holographiques
+// SURPRISE « LE RAYON DE CAPTURE » : l'écran TREMBLE, un CÔNE de lumière bleue descend du haut, et la
+// trame hexagonale S'ALLUME en une VAGUE QUI DESCEND (le champ de confinement se referme sur la scène),
+// avant un FLASH et la dissipation. Le calque du rayon est (dé)monté le temps de la séquence (sa clé
+// React rejoue les animations) ; la vague de la trame, elle, est pilotée par la classe `is-capturing`
+// sur la racine (retard par alvéole porté par `--fed-cage`). Durées : keyframes `fed*` (index.css).
+const FED_BEAM_TEST = false
+const FED_BEAM_MS = 6000 // durée totale de la séquence
+const FED_BEAM_GAP_MIN_MS = FED_BEAM_TEST ? 7000 : 80_000 // 1 min 20 (c'est une SURPRISE : c'est rare)
+const FED_BEAM_GAP_MAX_MS = FED_BEAM_TEST ? 12_000 : 160_000 // 2 min 40
+
+function FederationDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  // La trame : positions du pavage + le sous-ensemble qui respire + le retard de la vague du champ de
+  // confinement (par RANGÉE → la vague descend en même temps que le rayon). Figée au montage.
+  const [hexes] = useState(() => {
+    const breathing = new Set<number>()
+    const total = FED_HEX_COLS * FED_HEX_ROWS
+    while (breathing.size < FED_HEX_BREATHING) breathing.add(Math.floor(Math.random() * total))
+    return Array.from({ length: total }, (_, i) => {
+      const r = Math.floor(i / FED_HEX_COLS)
+      const c = i % FED_HEX_COLS
+      return {
+        x: c * FED_HEX_W + (r % 2 ? FED_HEX_W / 2 : 0) - FED_HEX_W / 2, // vh (débord d'une demi-alvéole à gauche)
+        y: r * FED_HEX_H * 0.75 - FED_HEX_H / 2, // vh
+        // Retard de l'allumage : la rangée dicte la vague, un peu de hasard casse l'effet de ligne.
+        // Le pas entre rangées doit rester GRAND devant la durée d'une alvéole (`fedCage`, 1,5 s),
+        // sinon toutes s'allument ensemble et la vague ne se lit plus comme une bande qui descend.
+        cage: r * 0.22 + Math.random() * 0.13, // s
+        // Alvéoles qui respirent : cycle et déphasage propres.
+        breath: breathing.has(i)
+          ? { dur: 5 + Math.random() * 5, delay: -(Math.random() * 10), op: 0.5 + Math.random() * 0.5 }
+          : null,
+      }
+    })
+  })
+  // Panneaux holographiques : posés sur les MARGES (gauche/droite) pour laisser le centre — où
+  // s'affiche le plateau — dégagé. Chacun porte 3 à 6 lignes de données qui clignotent. Figés.
+  const [panels] = useState(() =>
+    Array.from({ length: FED_PANELS }, (_, i) => ({
+      left: i % 2 ? 62 + Math.random() * 22 : 3 + Math.random() * 14, // % (alterne les deux marges)
+      top: 8 + Math.random() * 62, // %
+      w: 9 + Math.random() * 6, // vh
+      dur: 6 + Math.random() * 5, // s (respiration du panneau)
+      delay: -(Math.random() * 8), // s
+      bars: Array.from({ length: 3 + Math.floor(Math.random() * 4) }, () => ({
+        w: 30 + Math.random() * 65, // % de la largeur du panneau
+        dur: 1.4 + Math.random() * 3.4, // s (clignotement de la ligne)
+        delay: -(Math.random() * 4), // s
+      })),
+    })),
+  )
+  // SURPRISE : le rayon de capture. `beam` = n° de passage (clé React) ; la classe `is-capturing`
+  // déclenche en parallèle le tremblement et la vague de la trame.
+  const [beam, setBeam] = useState<number | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let run = 0
+    const fire = () => {
+      setBeam(++run)
+      clear = setTimeout(() => setBeam(null), FED_BEAM_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(FED_BEAM_GAP_MIN_MS + Math.random() * (FED_BEAM_GAP_MAX_MS - FED_BEAM_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(FED_BEAM_TEST ? 3000 : 50_000 + Math.random() * 35_000) // 1re capture : 50 s à 1 min 25
+    // MODE TEST : déclenche la capture à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  return (
+    <div className={`fed-decor${beam !== null ? ' is-capturing' : ''}`} aria-hidden>
+      {/* La trame hexagonale de la Fédération (le motif du plateau de la Conseillère). Chaque alvéole
+          porte son calque d'ALLUMAGE (champ de confinement, opacité seule → composité) ; celles qui
+          respirent portent en plus un calque de lueur douce. */}
+      <div className="fed-grid">
+        {hexes.map((h, i) => (
+          <span
+            key={`fed-hex-${i}`}
+            className="fed-hex"
+            style={
+              {
+                left: `${h.x}vh`,
+                top: `${h.y}vh`,
+                width: `${FED_HEX_W}vh`,
+                height: `${FED_HEX_H}vh`,
+                '--fed-cage': `${h.cage}s`,
+              } as CSSProperties
+            }
+          >
+            {h.breath && (
+              <span
+                className="fed-hex-breath"
+                style={{
+                  animationDuration: `${h.breath.dur}s`,
+                  animationDelay: `${h.breath.delay}s`,
+                  '--op': h.breath.op,
+                } as CSSProperties}
+              />
+            )}
+            <span className="fed-hex-cage" />
+          </span>
+        ))}
+      </div>
+      {/* L'ARC DE LA PLANÈTE en bas de l'écran : un très grand disque dont on ne voit que la calotte,
+          surmonté de son liseré d'ATMOSPHÈRE lumineux. */}
+      <div className="fed-planet">
+        <div className="fed-planet-limb" />
+      </div>
+      {/* Panneaux holographiques cyan : cadre translucide + lignes de données qui clignotent. */}
+      {panels.map((p, i) => (
+        <div
+          key={`fed-panel-${i}`}
+          className="fed-panel"
+          style={{
+            left: `${p.left}%`,
+            top: `${p.top}%`,
+            width: `${p.w}vh`,
+            animationDuration: `${p.dur}s`,
+            animationDelay: `${p.delay}s`,
+          }}
+        >
+          {p.bars.map((b, j) => (
+            <span
+              key={j}
+              className="fed-panel-bar"
+              style={{ width: `${b.w}%`, animationDuration: `${b.dur}s`, animationDelay: `${b.delay}s` }}
+            />
+          ))}
+        </div>
+      ))}
+      {/* Balayage de scan : nappe cyan qui descend périodiquement (la passerelle scrute la planète). */}
+      <div className="fed-scan" />
+      {/* SURPRISE : le rayon de capture (cône + cœur du faisceau + la CIBLE + flash final). */}
+      {beam !== null && (
+        <div key={beam} className="fed-beam">
+          <div className="fed-beam-cone" />
+          <div className="fed-beam-core" />
+          {/* STITCH, pris dans le faisceau au bas du cône : silhouette noire à contre-jour, happée
+              vers le haut à mesure que le champ se referme, puis emportée par le flash. */}
+          <img className="fed-beam-stitch" src="/animations/stitch.png" alt="" />
+          <div className="fed-beam-flash" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Décor permanent : MICHAEL MYERS (Halloween), kind `haddonfield`.
+// LA NUIT DU 31 OCTOBRE À HADDONFIELD. Nuit de banlieue FROIDE et déserte : les pavillons en
+// silhouette noire au fond (dont quelques fenêtres allumées, l'une s'éteignant de temps en temps),
+// un LAMPADAIRE blafard qui grésille, une BRUME basse qui dérive dans la rue, des FEUILLES MORTES
+// qui tombent en voletant puis roulent au sol, et la CITROUILLE du générique qui luit en haut de la
+// colonne, sa flamme vacillant à l'intérieur.
+// Répartition volontaire : la citrouille occupe la BANDE HAUTE et tout le reste la BANDE BASSE — le
+// plateau, opaque, masque le centre de la colonne (même contrainte que les masques de Facilier).
+// ---------------------------------------------------------------------------
+const HD_LEAVES = 30 // feuilles mortes qui tombent
+const HD_GROUND_LEAVES = 8 // feuilles qui roulent au ras du sol
+// Teintes d'automne (feuilles sèches) : brun, rouille, ocre — jamais de vert.
+const HD_LEAF_COLORS = ['#8a4b22', '#a35d24', '#6b3a17', '#c07a2c', '#7a5320', '#9c3f1f', '#b8843a']
+// Les pavillons de Haddonfield : profils FIGÉS (silhouettes noires découpées sur le ciel). `left`/`w`
+// en % de la colonne, `h` en vh ; `lit` = fenêtre allumée (chaude), `dies` = elle s'éteint en cours de
+// partie (quelqu'un vient de se coucher… ou pas).
+// La ligne de toits reste BASSE (≈ 11-16 vh) : au-delà, elle mangeait toute la bande visible et une
+// silhouette debout dans la rue se retrouvait entièrement sur du noir, donc invisible.
+const HD_HOUSES = [
+  { left: -5, w: 20, h: 13, lit: true, dies: false },
+  { left: 13, w: 16, h: 16, lit: false, dies: false },
+  { left: 30, w: 18, h: 11, lit: true, dies: true },
+  { left: 47, w: 21, h: 15, lit: false, dies: false },
+  { left: 67, w: 17, h: 12, lit: true, dies: false },
+  { left: 83, w: 22, h: 14, lit: false, dies: false },
+]
+// SURPRISE « THE SHAPE » : le trope signature du film. Le lampadaire GRÉSILLE et, quand la lumière
+// revient, Michael est là — planté dans la rue, parfaitement IMMOBILE. Il ne fait rien, ne s'approche
+// pas : il regarde. Puis il se fond de nouveau dans la nuit. Tout l'effet tient dans l'absence de
+// mouvement, donc la silhouette n'a AUCUNE animation propre hors le fondu d'entrée/sortie.
+const HD_SHAPE_TEST = false
+const HD_SHAPE_MS = 14_000 // fondu d'apparition (4 s) + immobilité (5 s) + effacement en fondu (5 s)
+const HD_SHAPE_GAP_MIN_MS = HD_SHAPE_TEST ? 8000 : 120_000 // 2 min
+const HD_SHAPE_GAP_MAX_MS = HD_SHAPE_TEST ? 13_000 : 240_000 // 4 min
+// Emplacements CURÉS où il peut se tenir (bande basse uniquement — ailleurs le plateau le masque).
+// `left` en %, `bottom` en vh, `h` = sa taille en vh (plus petit = plus loin dans la rue).
+// Ils restent dans la MOITIÉ GAUCHE de la colonne : à droite, il se retrouvait à cheval sur les
+// piles de cartes et le pion, où on ne le voyait plus.
+const HD_SHAPE_SPOTS = [
+  { left: 6, bottom: 0, h: 17 },
+  { left: 16, bottom: 1.5, h: 15 },
+  { left: 27, bottom: -0.5, h: 19 },
+  { left: 38, bottom: 1, h: 16 },
+  { left: 50, bottom: 0, h: 18 },
+]
+
+function HaddonfieldDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  // Feuilles mortes : schéma nesté chute > voltige > rotation (comme les pétales de la Reine de
+  // Cœur), avec de la PROFONDEUR — les feuilles lointaines sont petites, lentes et sombres.
+  const [leaves] = useState(() =>
+    Array.from({ length: HD_LEAVES }, () => {
+      const depth = Math.random() // 0 = loin, 1 = tout près
+      return {
+        left: -6 + Math.random() * 112, // % (déborde : elles entrent/sortent par les côtés)
+        size: 0.7 + depth * 1.5, // vh
+        fallDur: 11 - depth * 4.5, // s (les proches tombent plus vite)
+        fallDelay: -(Math.random() * 14), // s
+        swayDur: 1.9 + Math.random() * 2.2, // s (voltige latérale)
+        sway: (Math.random() < 0.5 ? -1 : 1) * (1.4 + Math.random() * 3.4), // vh
+        spinDur: 1.3 + Math.random() * 2.6, // s (elle tourne sur elle-même en tombant)
+        op: 0.3 + depth * 0.45,
+        color: HD_LEAF_COLORS[Math.floor(Math.random() * HD_LEAF_COLORS.length)],
+      }
+    }),
+  )
+  // Feuilles au SOL : elles ne tombent pas, elles sont poussées par le vent et raclent le bitume
+  // d'un bout à l'autre de la rue (elles ne partent pas toutes dans le même sens).
+  const [groundLeaves] = useState(() =>
+    Array.from({ length: HD_GROUND_LEAVES }, () => ({
+      bottom: 1 + Math.random() * 7, // vh
+      size: 0.9 + Math.random() * 1.3, // vh
+      dur: 7 + Math.random() * 7, // s (traversée)
+      delay: -(Math.random() * 16), // s
+      rtl: Math.random() < 0.35, // quelques-unes remontent la rue
+      op: 0.3 + Math.random() * 0.35,
+      color: HD_LEAF_COLORS[Math.floor(Math.random() * HD_LEAF_COLORS.length)],
+    })),
+  )
+  // Nappes de brume basse : elles traversent la rue en s'effaçant aux deux bords.
+  const [mist] = useState(() =>
+    Array.from({ length: 5 }, (_, i) => ({
+      bottom: 1 + i * 3.5 + Math.random() * 2, // vh
+      w: 40 + Math.random() * 45, // vh
+      h: 7 + Math.random() * 7, // vh
+      dur: 34 + Math.random() * 28, // s
+      delay: -(Math.random() * 50), // s
+      op: 0.1 + Math.random() * 0.14,
+    })),
+  )
+  // SURPRISE : `shape` = l'emplacement tiré pour ce passage (+ un compteur qui sert de clé React
+  // pour rejouer les animations). `null` = il n'est pas là.
+  const [shape, setShape] = useState<{ spot: (typeof HD_SHAPE_SPOTS)[number]; run: number; flip: boolean } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let run = 0
+    const fire = () => {
+      const spot = HD_SHAPE_SPOTS[Math.floor(Math.random() * HD_SHAPE_SPOTS.length)]
+      setShape({ spot, run: ++run, flip: Math.random() < 0.5 })
+      clear = setTimeout(() => setShape(null), HD_SHAPE_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(HD_SHAPE_GAP_MIN_MS + Math.random() * (HD_SHAPE_GAP_MAX_MS - HD_SHAPE_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(HD_SHAPE_TEST ? 3000 : 60_000 + Math.random() * 40_000) // 1re apparition : 1 min à 1 min 40
+    // MODE TEST : le fait apparaître à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  return (
+    <div className={`hd-decor${shape ? ' is-stalking' : ''}`} aria-hidden>
+      {/* LA CITROUILLE du générique, en haut de la colonne : sa flamme vacille à l'intérieur (halo
+          orange qui bat) — le seul point CHAUD d'un décor entièrement froid. */}
+      <div className="hd-pumpkin">
+        <div className="hd-pumpkin-glow" />
+        <img className="hd-pumpkin-img" src="/animations/citrouille_meyers.png" alt="" />
+      </div>
+      {/* LA RUE. Tout ce qui est « au sol » vit dans ce calque, dont le bas est remonté au-dessus du
+          panneau du joueur (`bottom: HD_GROUND`) : posé à 0, le trottoir passait derrière le panneau
+          et on ne voyait plus ni les pavillons ni le pied du lampadaire. */}
+      <div className="hd-ground">
+        {/* LA CHAUSSÉE : bande d'asphalte au ras du sol, un peu plus claire que les pavillons — c'est
+            elle qui donne un FOND sur lequel se détacher ; sans elle, tout le bas de la colonne était
+            un aplat noir et une silhouette posée là devenait invisible. */}
+        <div className="hd-road" />
+        {/* Les PAVILLONS au fond : découpes noires (corps + toit à deux pentes) sur le ciel. */}
+        <div className="hd-street">
+          {HD_HOUSES.map((h, i) => (
+            <div key={`hd-house-${i}`} className="hd-house" style={{ left: `${h.left}%`, width: `${h.w}%`, height: `${h.h}vh` }}>
+              <span className="hd-house-roof" />
+              <span className="hd-house-body" />
+              {h.lit && <span className={`hd-window${h.dies ? ' hd-window--dies' : ''}`} />}
+            </div>
+          ))}
+        </div>
+        {/* BRUME basse qui dérive dans la rue. */}
+        {mist.map((m, i) => (
+          <span
+            key={`hd-mist-${i}`}
+            className="hd-mist"
+            style={
+              {
+                bottom: `${m.bottom}vh`,
+                width: `${m.w}vh`,
+                height: `${m.h}vh`,
+                animationDuration: `${m.dur}s`,
+                animationDelay: `${m.delay}s`,
+                '--op': m.op,
+              } as CSSProperties
+            }
+          />
+        ))}
+        {/* LES DEUX LAMPADAIRES (un de chaque côté de la rue, celui de gauche plus loin donc plus
+            court) : mât, tête, cône de lumière blafarde et flaque au sol. Ce sont eux qui GRÉSILLENT
+            au moment où Michael apparaît. */}
+        <div className="hd-lamp hd-lamp--left">
+          <span className="hd-lamp-pole" />
+          <span className="hd-lamp-head" />
+          <span className="hd-lamp-cone" />
+          <span className="hd-lamp-pool" />
+        </div>
+        <div className="hd-lamp">
+          <span className="hd-lamp-pole" />
+          <span className="hd-lamp-head" />
+          <span className="hd-lamp-cone" />
+          <span className="hd-lamp-pool" />
+        </div>
+        {/* FEUILLES AU SOL raclées par le vent d'un bout à l'autre de la rue. */}
+        {groundLeaves.map((g, i) => (
+          <span
+            key={`hd-ground-leaf-${i}`}
+            className={`hd-ground-leaf${g.rtl ? ' hd-ground-leaf--rtl' : ''}`}
+            style={{
+              bottom: `${g.bottom}vh`,
+              width: `${g.size}vh`,
+              height: `${g.size * 1.35}vh`,
+              background: g.color,
+              opacity: g.op,
+              animationDuration: `${g.dur}s`,
+              animationDelay: `${g.delay}s`,
+            }}
+          />
+        ))}
+        {/* SURPRISE « THE SHAPE » : il est là. Il ne bouge pas. */}
+        {shape && (
+          <img
+            key={shape.run}
+            className="hd-shape"
+            src="/animations/silhouette_meyers.png"
+            alt=""
+            style={{
+              left: `${shape.spot.left}%`,
+              bottom: `${shape.spot.bottom}vh`,
+              height: `${shape.spot.h}vh`,
+              '--flip': shape.flip ? -1 : 1,
+            } as CSSProperties}
+          />
+        )}
+      </div>
+      {/* FEUILLES MORTES qui tombent (chute > voltige > rotation). */}
+      {leaves.map((l, i) => (
+        <span
+          key={`hd-leaf-${i}`}
+          className="hd-leaf-fall"
+          style={{ left: `${l.left}%`, animationDuration: `${l.fallDur}s`, animationDelay: `${l.fallDelay}s` }}
+        >
+          <span
+            className="hd-leaf-sway"
+            style={
+              { animationDuration: `${l.swayDur}s`, '--sway': `${l.sway}vh` } as CSSProperties
+            }
+          >
+            <span
+              className="hd-leaf"
+              style={{
+                width: `${l.size}vh`,
+                height: `${l.size * 1.35}vh`,
+                background: l.color,
+                opacity: l.op,
+                animationDuration: `${l.spinDur}s`,
+              }}
+            />
+          </span>
+        </span>
+      ))}
+      <div className="hd-vignette" />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Décor permanent : ISABELLA (The Promised Neverland), kind `graceField`.
+// LE JARDIN D'ENFANCE — ET SON MENSONGE. La MAISON de Grace Field posée dans sa prairie, la lisière
+// de FORÊT derrière elle et, tout au fond, LE MUR infranchissable percé de sa PORTE. Par-dessus,
+// une JOURNÉE défile en boucle (plein jour → crépuscule doré → nuit → aube) : c'est l'objectif
+// d'Isabella, ses « activités quotidiennes ». La nuit, les étoiles sortent, les fenêtres de la maison
+// s'allument et les LUCIOLES gagnent la prairie ; le jour, elles s'effacent. Des MATRICULES à 5
+// chiffres s'inscrivent en fondu dans le ciel, comme tamponnés sur la nuque des enfants.
+// Répartition volontaire : le ciel (étoiles, matricules) occupe la BANDE HAUTE, la maison et la
+// prairie la BANDE BASSE — le plateau, opaque, masque le centre de la colonne.
+// ---------------------------------------------------------------------------
+// Durée d'une JOURNÉE complète (s). Toutes les couches du cycle (crépuscule, nuit, étoiles, fenêtres,
+// lucioles) partagent cette durée : elles doivent rester rigoureusement en phase.
+const GF_DAY_S = 300
+const GF_FIREFLIES = 26
+const GF_STARS = 46
+// Matricules tatoués sur la nuque : ceux d'Emma, Norman et Ray (canoniques), complétés de numéros
+// de la même famille — c'est le motif qui compte, pas l'exactitude de chaque enfant.
+const GF_TAGS = ['63194', '22194', '81194', '16194', '24194', '98718', '35204', '71592']
+// La lisière de FORÊT derrière le mur : Grace Field est cachée au cœur d'une forêt de FEUILLUS (pas
+// de conifères). Chaque arbre = un tronc + une couronne bosselée (empilement de dégradés radiaux dans
+// un seul élément). Profils FIGÉS : `left`/`w` en % de la colonne, `h` en vh, `c` la teinte de la
+// couronne (les plus CLAIRES sont les plus lointaines) et `sway` la période de balancement (s).
+const GF_TREES = [
+  { left: -4, w: 13, h: 8.5, c: '#16240e', sway: 7.5 },
+  { left: 4, w: 10, h: 6.5, c: '#22351a', sway: 6.2 },
+  { left: 11, w: 15, h: 9.5, c: '#101c0a', sway: 8.4 },
+  { left: 21, w: 11, h: 7, c: '#1c2d14', sway: 6.8 },
+  { left: 29, w: 14, h: 8, c: '#152210', sway: 7.9 },
+  { left: 39, w: 10, h: 6, c: '#25391c', sway: 5.8 },
+  { left: 46, w: 15, h: 9, c: '#111e0b', sway: 8.1 },
+  { left: 57, w: 11, h: 7, c: '#1e3016', sway: 6.5 },
+  { left: 64, w: 14, h: 8.5, c: '#14210f', sway: 7.7 },
+  { left: 75, w: 10, h: 6.5, c: '#243818', sway: 6 },
+  { left: 82, w: 15, h: 9, c: '#0e1a09', sway: 8.6 },
+  { left: 93, w: 12, h: 7.5, c: '#1a2b12', sway: 7 },
+]
+// LE GRAND ARBRE de la pelouse — celui sous lequel les enfants jouent, planté à droite de la maison.
+// Plus grand, plus proche, plus sombre que la lisière : c'est lui qui donne la profondeur au pré.
+const GF_BIG_TREE = { left: 80, bottom: 19.5, w: 30, h: 20, c: '#0d1808', sway: 9.5 }
+// HERBES du premier plan : des brins qui se dressent au bord du pré et ondulent au vent. Ils sont
+// enracinés dans la bande RÉELLEMENT visible (~17→20 vh) et montent devant les fleurs Vida.
+const GF_BLADES = 170
+// SURPRISE « LA MOISSON ». La cloche sonne — celle qui annonce l'expédition d'un enfant. Deux ondes
+// partent du clocheton, le monde se FIGE et se DÉSATURE, une lueur rouge monte du sol, les FLEURS
+// VIDA (celles qu'on pose sur les corps expédiés) s'ouvrent dans la prairie et leurs pétales
+// dérivent ; puis le rouge reflue et les lucioles se rallument. Aucun texte.
+const GF_HARVEST_TEST = false
+const GF_HARVEST_MS = 14_000 // cloche (1,5 s) + bascule (3 s) + rouge tenu (6 s) + retour (3,5 s)
+const GF_HARVEST_GAP_MIN_MS = GF_HARVEST_TEST ? 9000 : 150_000 // 2 min 30
+const GF_HARVEST_GAP_MAX_MS = GF_HARVEST_TEST ? 15_000 : 260_000 // 4 min 20
+// Les fleurs Vida qui poussent dans la prairie : `left` en %, `bottom` en vh (le pied du massif),
+// `h` la hauteur de la fleur en vh (tige comprise). Elles sont enracinées dans la BANDE VISIBLE
+// (~17→20 vh) : plus bas, le panneau du joueur masquerait leur pied.
+const GF_VIDA = [
+  { left: 9, bottom: 18, h: 9, delay: 0.2, flip: false },
+  { left: 25, bottom: 17, h: 11.5, delay: 0.9, flip: true },
+  { left: 41, bottom: 19.5, h: 7, delay: 0.5, flip: false },
+  { left: 61, bottom: 17.5, h: 10.5, delay: 1.2, flip: true },
+  { left: 77, bottom: 19, h: 7.5, delay: 0.7, flip: false },
+  { left: 87, bottom: 17.5, h: 10, delay: 1.5, flip: true },
+]
+const GF_PETALS = 22
+
+function GraceFieldDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'graceField' }> }) {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  // Étoiles de la bande haute : elles ne sont visibles que la NUIT (le calque parent suit le cycle),
+  // chacune scintillant sur son propre rythme.
+  const [stars] = useState(() =>
+    Array.from({ length: GF_STARS }, () => ({
+      left: Math.random() * 100, // %
+      top: Math.random() * 26, // vh
+      size: 0.15 + Math.random() * 0.28, // vh
+      dur: 2.4 + Math.random() * 4, // s
+      delay: -(Math.random() * 6), // s
+      op: 0.45 + Math.random() * 0.5,
+    })),
+  )
+  // MATRICULES : ils s'inscrivent lentement dans le ciel puis s'effacent, jamais deux en même temps
+  // au même endroit (cycle long, décalé par index).
+  const [tags] = useState(() =>
+    GF_TAGS.map((n, i) => ({
+      n,
+      left: 3 + (i % 4) * 23 + Math.random() * 7, // %
+      top: (i < 4 ? 1.5 : 12) + Math.random() * 7, // vh
+      size: 1.2 + Math.random() * 1, // vh
+      dur: 22 + Math.random() * 14, // s
+      delay: -(i * 5 + Math.random() * 4), // s
+      tilt: (Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 7), // deg
+    })),
+  )
+  // LUCIOLES au-dessus de la prairie : dérive lente (nestée : dérive > montée) + clignotement propre.
+  const [fireflies] = useState(() =>
+    Array.from({ length: GF_FIREFLIES }, () => ({
+      left: -4 + Math.random() * 108, // %
+      bottom: 20 + Math.random() * 16, // vh (au-dessus de l'herbe, autour de la maison)
+      size: 0.3 + Math.random() * 0.4, // vh
+      driftDur: 14 + Math.random() * 16, // s
+      drift: (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 8), // vh
+      riseDur: 6 + Math.random() * 7, // s
+      rise: 1.5 + Math.random() * 4, // vh
+      blinkDur: 1.6 + Math.random() * 3, // s
+      delay: -(Math.random() * 20), // s
+    })),
+  )
+  // HERBES : des brins de hauteur, d'inclinaison et de teinte variées, plantés le long du bord du pré
+  // (les plus hauts derrière, les plus sombres devant) et bercés chacun à son rythme.
+  const [blades] = useState(() =>
+    Array.from({ length: GF_BLADES }, () => {
+      const depth = Math.random() // 0 = au fond du pré, 1 = au premier plan
+      return {
+        left: -2 + Math.random() * 104, // %
+        bottom: 16 + (1 - depth) * 8.5, // vh (les lointains montent vers l'horizon)
+        w: 0.16 + depth * 0.5, // vh
+        h: (0.9 + Math.random() * 1.9) * (0.45 + depth * 1.35), // vh
+        c: depth > 0.6 ? '#2c4a15' : '#4d7526', // les brins proches sont plus sombres
+        tilt: (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 9), // deg
+        dur: 3.4 + Math.random() * 3.4, // s (le vent ne les prend pas tous ensemble)
+        delay: Math.random() * 6, // s
+      }
+    }),
+  )
+  // Pétales de Vida emportés pendant la Moisson (chute > dérive latérale > rotation).
+  const [petals] = useState(() =>
+    Array.from({ length: GF_PETALS }, () => ({
+      left: Math.random() * 100, // %
+      size: 0.8 + Math.random() * 1.4, // vh
+      fallDur: 6 + Math.random() * 5, // s
+      delay: Math.random() * 6, // s (ils partent au fil de la séquence, pas tous ensemble)
+      swayDur: 2 + Math.random() * 2.2, // s
+      sway: (Math.random() < 0.5 ? -1 : 1) * (1.5 + Math.random() * 3), // vh
+      spinDur: 1.6 + Math.random() * 2.4, // s
+      op: 0.45 + Math.random() * 0.45,
+    })),
+  )
+  // SURPRISE : `harvest` porte un compteur qui sert de clé React (rejoue les animations). `null` =
+  // journée ordinaire.
+  const [harvest, setHarvest] = useState<{ run: number } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let run = 0
+    const fire = () => {
+      setHarvest({ run: ++run })
+      clear = setTimeout(() => setHarvest(null), GF_HARVEST_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(GF_HARVEST_GAP_MIN_MS + Math.random() * (GF_HARVEST_GAP_MAX_MS - GF_HARVEST_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(GF_HARVEST_TEST ? 3000 : 75_000 + Math.random() * 45_000) // 1re Moisson : 1 min 15 à 2 min
+    // MODE TEST : sonne la cloche à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  return (
+    <div
+      className={`gf-decor${harvest ? ' is-harvest' : ''}`}
+      style={{ '--day': `${GF_DAY_S}s` } as CSSProperties}
+      aria-hidden
+    >
+      {/* LE MONDE : tout ce qui se DÉSATURE quand la cloche sonne. */}
+      <div className="gf-world">
+        {/* ÉTOILES (visibles la nuit seulement — le calque suit le cycle du jour). */}
+        <div className="gf-stars">
+          {stars.map((s, i) => (
+            <span
+              key={`gf-star-${i}`}
+              className="gf-star"
+              style={
+                {
+                  left: `${s.left}%`,
+                  top: `${s.top}vh`,
+                  width: `${s.size}vh`,
+                  height: `${s.size}vh`,
+                  animationDuration: `${s.dur}s`,
+                  animationDelay: `${s.delay}s`,
+                  '--op': s.op,
+                } as CSSProperties
+              }
+            />
+          ))}
+        </div>
+        {/* MATRICULES tamponnés dans le ciel. */}
+        {tags.map((t, i) => (
+          <span
+            key={`gf-tag-${i}`}
+            className="gf-tag"
+            style={{
+              left: `${t.left}%`,
+              top: `${t.top}vh`,
+              fontSize: `${t.size}vh`,
+              animationDuration: `${t.dur}s`,
+              animationDelay: `${t.delay}s`,
+              transform: `rotate(${t.tilt}deg)`,
+            }}
+          >
+            {t.n}
+          </span>
+        ))}
+        {/* LE MUR, tout au fond : la bande de béton qui ferme l'horizon, et sa PORTE. */}
+        <div className="gf-wall">
+          <span className="gf-gate" />
+        </div>
+        {/* LA LISIÈRE DE FORÊT (feuillus), devant le mur. */}
+        <div className="gf-treeline">
+          {GF_TREES.map((t, i) => (
+            <span
+              key={`gf-tree-${i}`}
+              className="gf-tree"
+              style={
+                {
+                  left: `${t.left}%`,
+                  width: `${t.w}%`,
+                  height: `${t.h}vh`,
+                  '--c': t.c,
+                  animationDuration: `${t.sway}s`,
+                  animationDelay: `-${i * 0.7}s`,
+                } as CSSProperties
+              }
+            >
+              <span className="gf-tree-trunk" />
+              <span className="gf-tree-crown" />
+            </span>
+          ))}
+        </div>
+        {/* LE GRAND ARBRE de la pelouse, à droite de la maison. */}
+        <span
+          className="gf-tree gf-tree--big"
+          style={
+            {
+              left: `${GF_BIG_TREE.left}%`,
+              bottom: `${GF_BIG_TREE.bottom}vh`,
+              width: `${GF_BIG_TREE.w}%`,
+              height: `${GF_BIG_TREE.h}vh`,
+              '--c': GF_BIG_TREE.c,
+              animationDuration: `${GF_BIG_TREE.sway}s`,
+            } as CSSProperties
+          }
+        >
+          <span className="gf-tree-trunk" />
+          <span className="gf-tree-crown" />
+        </span>
+        {/* LA MAISON de Grace Field, avec le halo chaud de ses fenêtres qui s'allument la nuit. */}
+        <div className="gf-home">
+          <span className="gf-home-glow" />
+          <img className="gf-home-img" src={decor.home} alt="" />
+        </div>
+        {/* LA PRAIRIE : le pré qui descend jusqu'au bas de l'écran… */}
+        <div className="gf-field" />
+        {/* …et ses HERBES de premier plan, qui ondulent au vent. */}
+        <div className="gf-grass">
+          {blades.map((b, i) => (
+            <span
+              key={`gf-blade-${i}`}
+              className="gf-blade"
+              style={
+                {
+                  left: `${b.left}%`,
+                  bottom: `${b.bottom}vh`,
+                  width: `${b.w}vh`,
+                  height: `${b.h}vh`,
+                  background: `linear-gradient(to top, #1f3410, ${b.c})`,
+                  animationDuration: `${b.dur}s`,
+                  animationDelay: `-${b.delay}s`,
+                  '--tilt': `${b.tilt}deg`,
+                } as CSSProperties
+              }
+            />
+          ))}
+        </div>
+        {/* LUCIOLES (dérive > montée > clignotement) — elles s'éteignent pendant la Moisson. */}
+        <div className="gf-fireflies">
+          {fireflies.map((f, i) => (
+            <span
+              key={`gf-fly-${i}`}
+              className="gf-fly-drift"
+              style={
+                {
+                  left: `${f.left}%`,
+                  bottom: `${f.bottom}vh`,
+                  animationDuration: `${f.driftDur}s`,
+                  animationDelay: `${f.delay}s`,
+                  '--drift': `${f.drift}vh`,
+                } as CSSProperties
+              }
+            >
+              <span
+                className="gf-fly-rise"
+                style={{ animationDuration: `${f.riseDur}s`, '--rise': `${f.rise}vh` } as CSSProperties}
+              >
+                <span
+                  className="gf-fly"
+                  style={{ width: `${f.size}vh`, height: `${f.size}vh`, animationDuration: `${f.blinkDur}s` }}
+                />
+              </span>
+            </span>
+          ))}
+        </div>
+        {/* LE CYCLE DU JOUR : le crépuscule doré puis la nuit se posent sur le paysage (mur, forêt,
+            maison, prairie) ; étoiles, matricules et lucioles restent AU-DESSUS (z-index) — sans quoi
+            la nuit éteindrait précisément ce qu'elle est censée révéler. */}
+        <div className="gf-dusk" />
+        <div className="gf-night" />
+      </div>
+      {/* SURPRISE « LA MOISSON » : la cloche, le rouge, les fleurs Vida. */}
+      {harvest && (
+        <div className="gf-harvest" key={harvest.run}>
+          {/* Les deux ondes de la cloche, parties du clocheton. */}
+          <span className="gf-bell-ring" />
+          <span className="gf-bell-ring gf-bell-ring--2" />
+          {/* Le rouge : voile général + lueur qui monte du sol. */}
+          <span className="gf-blood-veil" />
+          <span className="gf-blood-rise" />
+          {/* Les fleurs Vida poussent dans la prairie (elles jaillissent du sol : `transform-origin`
+              au pied). Une sur deux est miroitée pour qu'on ne lise pas six fois la même. */}
+          {GF_VIDA.map((v, i) => (
+            <img
+              key={`gf-vida-${i}`}
+              className={`gf-vida${v.flip ? ' gf-vida--flip' : ''}`}
+              src={decor.vida}
+              alt=""
+              style={{
+                left: `${v.left}%`,
+                bottom: `${v.bottom}vh`,
+                height: `${v.h}vh`,
+                animationDelay: `${v.delay}s`,
+              }}
+            />
+          ))}
+          {/* …et leurs pétales dérivent. */}
+          {petals.map((p, i) => (
+            <span
+              key={`gf-petal-${i}`}
+              className="gf-petal-fall"
+              style={{ left: `${p.left}%`, animationDuration: `${p.fallDur}s`, animationDelay: `${p.delay}s` }}
+            >
+              <span
+                className="gf-petal-sway"
+                style={{ animationDuration: `${p.swayDur}s`, '--sway': `${p.sway}vh` } as CSSProperties}
+              >
+                <span
+                  className="gf-petal"
+                  style={{
+                    width: `${p.size}vh`,
+                    height: `${p.size * 1.5}vh`,
+                    opacity: p.op,
+                    animationDuration: `${p.spinDur}s`,
+                  }}
+                />
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="gf-vignette" />
+    </div>
+  )
+}
+
+// Décor permanent : ULTRON (Marvel), kind `ultronFactory`.
+// L'USINE DE SOKOVIA. Hangar d'acier sombre mordu par une lueur ROUGE : un CONVOYEUR défile en
+// continu au sol en portant des CHÂSSIS de drones inertes, des BRAS ROBOTISÉS pivotent au-dessus de
+// la chaîne en crachant des GERBES D'ÉTINCELLES de soudure, une poussière métallique flotte, et au
+// fond les PAIRES D'YEUX ROUGES de l'armée s'allument rangée par rangée.
+// L'armée est branchée sur la PROGRESSION D'OBJECTIF (`objectivePct`, comme la lune du Seigneur des
+// clés) : plus Ultron approche de L'ÈRE D'ULTRON, plus il y a d'yeux allumés — l'armée s'éveille.
+// Même contrainte de mise en page que `haddonfield` : tout ce qui est « au sol » vit dans un calque
+// remonté au-dessus du panneau du joueur, sinon c'est masqué. 100 % CSS (aucun asset).
+// ---------------------------------------------------------------------------
+// Les rangées de l'armée, du FOND (petites, floues, sombres) vers l'AVANT. `bottom` en vh au-dessus
+// du convoyeur, `size` = taille d'un œil en vh, `n` = nombre de paires sur la rangée.
+const UF_ARMY_ROWS = [
+  { bottom: 24, size: 0.46, blur: 0.9, op: 0.5, n: 13 },
+  { bottom: 19.5, size: 0.6, blur: 0.55, op: 0.66, n: 11 },
+  { bottom: 15, size: 0.8, blur: 0.25, op: 0.84, n: 9 },
+  { bottom: 10.5, size: 1, blur: 0, op: 1, n: 7 },
+]
+// Part de l'armée déjà éveillée à 0 % d'objectif : sans ce plancher, le décor démarrerait sans son
+// élément signature (le fond du hangar serait vide).
+const UF_ARMY_FLOOR = 0.2
+const UF_CHASSIS = 5 // châssis de drones portés par le convoyeur
+const UF_ARMS = [22, 52, 80] // position (%) des bras robotisés au-dessus de la chaîne
+const UF_SPARKS_PER_ARM = 12 // étincelles par gerbe de soudure
+const UF_DUST = 26 // poussière métallique en suspension
+// SURPRISE « SOKOVIA S'ÉLÈVE » : le sol tremble, puis toute l'usine est ARRACHÉE et s'élève ; sous
+// elle s'ouvre le cratère incandescent et des blocs de roche se détachent et tombent dans le vide.
+// Puis la dalle redescend et se repose dans un dernier choc.
+// Elle ne monte que de ~16 vh (et non hors cadre) : au-delà, la colonne se vidait de tout son décor
+// pendant plusieurs secondes — on veut voir l'usine SOULEVÉE, pas une colonne vide.
+const UF_RISE_TEST = false
+const UF_RISE_MS = 9000
+const UF_RISE_GAP_MIN_MS = UF_RISE_TEST ? 9000 : 120_000 // 2 min
+const UF_RISE_GAP_MAX_MS = UF_RISE_TEST ? 14_000 : 240_000 // 4 min
+const UF_DEBRIS = 24 // blocs de roche arrachés qui tombent dans le cratère
+
+function UltronFactoryDecor({ objectivePct }: { objectivePct?: number }) {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  // L'ARMÉE : positions figées au montage. `wake` = ordre d'éveil (les rangées du FOND s'allument
+  // en premier — l'armée s'éveille depuis la profondeur du hangar et avance vers nous) ; à rangée
+  // égale l'ordre est tiré au hasard pour que la ligne ne s'allume pas de gauche à droite.
+  const [army] = useState(() => {
+    const eyes = UF_ARMY_ROWS.flatMap((row, r) =>
+      Array.from({ length: row.n }, (_, i) => ({
+        row: r,
+        // Réparti sur toute la largeur, avec un léger décalage par rangée (les rangs ne sont pas
+        // alignés en colonnes) et un peu de jeu individuel.
+        left: ((i + 0.5) / row.n) * 100 + (r % 2 ? 2.5 : -2.5) + (Math.random() * 3 - 1.5),
+        bottom: row.bottom + (Math.random() * 1.4 - 0.7),
+        size: row.size,
+        blur: row.blur,
+        op: row.op,
+        // Battement propre à chaque œil (une armée n'a pas un clignotement synchrone).
+        dur: 3 + Math.random() * 4, // s
+        delay: -(Math.random() * 7), // s
+        rank: 0, // rempli juste après
+      })),
+    )
+    // Ordre d'éveil : les rangées de DEVANT d'abord (les plus grandes et les seules bien dégagées —
+    // le fond du hangar est à moitié masqué par le plateau, y allumer les premiers yeux ne se
+    // voyait pas), puis le hasard à rangée égale.
+    const order = eyes.map((_, i) => i).sort((a, b) => eyes[b].row - eyes[a].row || Math.random() - 0.5)
+    order.forEach((idx, rank) => (eyes[idx].rank = rank))
+    return eyes
+  })
+  // Châssis inertes sur le convoyeur : taille/vitesse/déphasage figés au montage.
+  const [chassis] = useState(() =>
+    Array.from({ length: UF_CHASSIS }, (_, i) => ({
+      h: 7.5 + Math.random() * 2.5, // vh
+      dur: 26 + Math.random() * 16, // s (la chaîne avance lentement)
+      delay: -((i / UF_CHASSIS) * 34 + Math.random() * 4), // s (étalés le long de la chaîne)
+    })),
+  )
+  // Gerbes de soudure : chaque étincelle a sa direction, sa portée et son moment. Le cycle est long
+  // (le bras ne soude que par à-coups) et décalé par bras.
+  const [sparks] = useState(() =>
+    UF_ARMS.map((_, a) =>
+      Array.from({ length: UF_SPARKS_PER_ARM }, () => ({
+        dx: (Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 9), // vh (portée latérale)
+        up: 1.5 + Math.random() * 4.5, // vh (hauteur du rebond)
+        dur: 0.5 + Math.random() * 0.5, // s (vie d'une étincelle)
+        delay: a * 1.9 + Math.random() * 0.9, // s (dans le cycle commun, décalé par bras)
+      })),
+    ),
+  )
+  // Poussière métallique en suspension : dérive lente en boucle fermée + scintillement.
+  const [dust] = useState(() =>
+    Array.from({ length: UF_DUST }, () => {
+      const depth = Math.random()
+      return {
+        left: Math.random() * 100, // %
+        top: 4 + Math.random() * 78, // %
+        size: 1 + depth * 2.6, // px
+        dx: (Math.random() * 2 - 1) * (2 + depth * 5), // vh
+        dy: (Math.random() * 2 - 1) * (1.5 + depth * 3), // vh
+        dur: 16 + Math.random() * 22, // s
+        delay: -(Math.random() * 30), // s
+        op: 0.12 + depth * 0.4,
+      }
+    }),
+  )
+  // Les BLOCS DE ROCHE de la surprise : profils figés au montage (le calque, lui, est monté et
+  // démonté à chaque passage — sa clé React rejoue les animations).
+  const [debris] = useState(() =>
+    Array.from({ length: UF_DEBRIS }, () => ({
+      left: -4 + Math.random() * 108, // %
+      size: 1.4 + Math.random() * 4.6, // vh
+      fall: 6 + Math.random() * 12, // vh (profondeur de chute dans le cratère)
+      dur: 1.6 + Math.random() * 2.4, // s
+      delay: 1.4 + Math.random() * 3.4, // s (ils s'arrachent au fil de l'ascension)
+      spin: (Math.random() < 0.5 ? -1 : 1) * (60 + Math.random() * 300), // °
+      radius: randomBlobRadius(), // silhouette irrégulière (réutilise le générateur des taches)
+    })),
+  )
+  // SURPRISE : `rise` = n° de passage (clé React) ; la classe `is-rising` pilote en parallèle la
+  // secousse et l'ascension de la dalle.
+  const [rise, setRise] = useState<number | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let run = 0
+    const fire = () => {
+      setRise(++run)
+      clear = setTimeout(() => setRise(null), UF_RISE_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(UF_RISE_GAP_MIN_MS + Math.random() * (UF_RISE_GAP_MAX_MS - UF_RISE_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(UF_RISE_TEST ? 3000 : 60_000 + Math.random() * 40_000) // 1re élévation : 1 min à 1 min 40
+    // MODE TEST : déclenche l'élévation à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  // Combien d'yeux sont allumés : plancher + progression d'objectif (0→100).
+  const lit = Math.round(army.length * (UF_ARMY_FLOOR + (1 - UF_ARMY_FLOOR) * Math.min(100, Math.max(0, objectivePct ?? 0)) / 100))
+  return (
+    <div className={`uf-decor${rise !== null ? ' is-rising' : ''}`} aria-hidden>
+      {/* Poussière métallique en suspension (dérive + scintillement). */}
+      {dust.map((d, i) => (
+        <span
+          key={`uf-dust-${i}`}
+          className="uf-dust"
+          style={
+            {
+              left: `${d.left}%`,
+              top: `${d.top}%`,
+              animationDuration: `${d.dur}s`,
+              animationDelay: `${d.delay}s`,
+              '--dx': `${d.dx}vh`,
+              '--dy': `${d.dy}vh`,
+            } as CSSProperties
+          }
+        >
+          <span
+            className="uf-dust-dot"
+            style={{ width: `${d.size}px`, height: `${d.size}px`, opacity: d.op }}
+          />
+        </span>
+      ))}
+      {/* SURPRISE : LE CRATÈRE. Il vit SOUS la dalle (rendu avant elle) et n'apparaît que dans la
+          brèche ouverte par l'ascension — d'où le calque monté à la demande. */}
+      {rise !== null && (
+        <div key={rise} className="uf-crater">
+          <div className="uf-crater-glow" />
+          {debris.map((d, i) => (
+            <span
+              key={i}
+              className="uf-rock"
+              style={
+                {
+                  left: `${d.left}%`,
+                  width: `${d.size}vh`,
+                  height: `${d.size * (0.7 + (i % 3) * 0.15)}vh`,
+                  borderRadius: d.radius,
+                  animationDuration: `${d.dur}s`,
+                  animationDelay: `${d.delay}s`,
+                  '--fall': `${d.fall}vh`,
+                  '--spin': `${d.spin}deg`,
+                } as CSSProperties
+              }
+            />
+          ))}
+        </div>
+      )}
+      {/* LE SOL DE L'USINE (remonté au-dessus du panneau du joueur). C'est la DALLE que la surprise
+          arrache et soulève : tout ce qu'elle porte (convoyeur, armée, bras) s'élève avec elle. */}
+      <div className="uf-ground">
+        {/* L'ARMÉE au fond : des paires d'yeux dans le noir. Celles qui sont ÉVEILLÉES brûlent en
+            rouge et battent chacune à son rythme ; les autres ne sont qu'un reflet sur du métal. */}
+        {army.map((e, i) => (
+          <span
+            key={`uf-drone-${i}`}
+            className={`uf-drone${e.rank < lit ? ' is-on' : ''}`}
+            style={
+              {
+                left: `${e.left}%`,
+                bottom: `${e.bottom}vh`,
+                height: `${e.size * 6.5}vh`,
+                filter: e.blur ? `blur(${e.blur}px)` : undefined,
+                animationDuration: `${e.dur}s`,
+                animationDelay: `${e.delay}s`,
+                '--op': e.op,
+              } as CSSProperties
+            }
+          >
+            {/* Le corps : une masse d'épaules à peine plus claire que la pénombre — c'est elle qui
+                fait lire une FOULE, là où des yeux seuls ne donnaient que des points épars. */}
+            <i className="uf-drone-body" />
+            {/* Les deux fentes doivent tenir DANS la tête (≈ 1,6 × `size` de large) : plus larges,
+                elles débordaient de part et d'autre du crâne. */}
+            <i className="uf-drone-eyes" style={{ gap: `${e.size * 0.32}vh` }}>
+              <i className="uf-eye-dot" style={{ width: `${e.size * 0.58}vh`, height: `${e.size * 0.34}vh` }} />
+              <i className="uf-eye-dot" style={{ width: `${e.size * 0.58}vh`, height: `${e.size * 0.34}vh` }} />
+            </i>
+          </span>
+        ))}
+        {/* LES BRAS ROBOTISÉS : ils pivotent au-dessus de la chaîne, tête de soudure au bout, et
+            crachent une gerbe d'étincelles par à-coups. */}
+        {UF_ARMS.map((left, a) => (
+          <div key={`uf-arm-${a}`} className="uf-arm" style={{ left: `${left}%`, animationDelay: `${-a * 2.7}s` }}>
+            <span className="uf-arm-segment" />
+            <span className="uf-arm-shoulder" />
+            <span className="uf-arm-head" style={{ animationDelay: `${a * 1.9}s` }} />
+            {/* La gerbe : chaque étincelle part de la tête, file de travers et retombe. */}
+            {sparks[a].map((s, i) => (
+              <span
+                key={i}
+                className="uf-spark-fly"
+                style={
+                  {
+                    animationDuration: `${s.dur}s`,
+                    animationDelay: `${s.delay}s`,
+                    '--dx': `${s.dx}vh`,
+                  } as CSSProperties
+                }
+              >
+                <span
+                  className="uf-spark"
+                  style={{ animationDuration: `${s.dur}s`, animationDelay: `${s.delay}s`, '--up': `${s.up}vh` } as CSSProperties}
+                />
+              </span>
+            ))}
+          </div>
+        ))}
+        {/* Le DESSOUS ARRACHÉ de la dalle : socle de roche déchiqueté, accroché sous le convoyeur.
+            Il vit à `bottom: -14vh`, donc hors champ (derrière le panneau du joueur) tant que
+            l'usine repose au sol — il n'apparaît QUE pendant l'élévation. */}
+        <div className="uf-slab" />
+        {/* LE CONVOYEUR : la bande crantée défile en continu, sur ses rouleaux. */}
+        <div className="uf-belt">
+          <span className="uf-belt-tread" />
+          <span className="uf-belt-edge" />
+        </div>
+        {/* Les CHÂSSIS inertes portés par la chaîne (silhouettes : tête anguleuse + torse). Chacun
+            porte un œil ÉTEINT — il n'est pas encore né. */}
+        {chassis.map((c, i) => (
+          <div
+            key={`uf-chassis-${i}`}
+            className="uf-chassis"
+            style={{ height: `${c.h}vh`, animationDuration: `${c.dur}s`, animationDelay: `${c.delay}s` }}
+          >
+            <span className="uf-chassis-head" />
+            <span className="uf-chassis-body" />
+          </div>
+        ))}
+      </div>
+      <div className="uf-vignette" />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Décor permanent : THANOS (Marvel), kind `titan`.
+// TITAN, SA PLANÈTE MORTE — ET LE GANTELET QUI COMPTE SES PIERRES. Le ciel est une nébuleuse
+// violet/magenta étoilée qui vire à l'ocre-rouille en descendant vers un sol stérile ; à l'horizon,
+// les TOURS BRISÉES de la cité en silhouette. Surtout, les BLOCS de la planète éclatée dérivent EN
+// SUSPENSION, tournant lentement sur eux-mêmes (la gravité est morte avec elle), pendant que des
+// CENDRES montent du sol.
+// Dans la bande haute, LE GANTELET DE L'INFINI fait office de JAUGE : ses six logements (4 phalanges,
+// le dos de la main, le pouce) portent chacun une Pierre, ALLUMÉE seulement si Thanos l'a réellement
+// capturée en Compétences — même principe que la phase de lune d'`atmosfear`, mais nominatif : c'est
+// bien la gemme de CETTE Pierre qui s'allume, à sa couleur.
+// Répartition volontaire : le Gantelet et le ciel occupent la BANDE HAUTE, les tours et le sol la
+// BANDE BASSE, les blocs en suspension les MARGES — le plateau, opaque, masque le centre.
+// ---------------------------------------------------------------------------
+// (Les 6 PIERRES et leurs logements sont une DONNÉE de décor : `TITAN_STONES`, villainDecor.ts.)
+// Profils de BLOC : trois découpes irrégulières (clip-path) suffisent à ce qu'aucun débris ne se
+// lise comme la copie d'un autre, la rotation et la taille faisant le reste.
+const TITAN_ROCK_SHAPES = [
+  'polygon(18% 4%, 62% 0%, 96% 34%, 88% 78%, 52% 100%, 12% 86%, 0% 44%)',
+  'polygon(34% 0%, 82% 14%, 100% 56%, 70% 96%, 24% 88%, 4% 52%, 10% 20%)',
+  'polygon(8% 22%, 48% 2%, 90% 18%, 100% 62%, 66% 92%, 26% 98%, 0% 66%)',
+]
+// LES BLOCS DE TITAN en suspension. `left` en %, `top` en vh, `size` en vh, `depth` de 0 (au fond :
+// petit, pâle, flou, lent) à 1 (au premier plan). Profils FIGÉS et répartis dans les MARGES et les
+// bandes haute/basse : le centre de la colonne est masqué par le plateau, un bloc y serait perdu.
+const TITAN_ROCKS = [
+  { left: -3, top: 26, size: 7, depth: 1, shape: 0, driftDur: 26, drift: 4, spinDur: 150 },
+  { left: 6, top: 8, size: 3.4, depth: 0.4, shape: 1, driftDur: 34, drift: -3, spinDur: 210 },
+  { left: 14, top: 44, size: 4.6, depth: 0.7, shape: 2, driftDur: 29, drift: 3.5, spinDur: 170 },
+  { left: 23, top: 17, size: 2.4, depth: 0.2, shape: 0, driftDur: 40, drift: 2.4, spinDur: 260 },
+  { left: 31, top: 62, size: 5.6, depth: 0.85, shape: 1, driftDur: 24, drift: -4.5, spinDur: 140 },
+  { left: 44, top: 30, size: 2.8, depth: 0.3, shape: 2, driftDur: 37, drift: 3, spinDur: 230 },
+  { left: 55, top: 12, size: 3.8, depth: 0.5, shape: 0, driftDur: 31, drift: -2.8, spinDur: 190 },
+  { left: 63, top: 52, size: 6.4, depth: 0.95, shape: 1, driftDur: 22, drift: 4.2, spinDur: 130 },
+  { left: 72, top: 24, size: 3.2, depth: 0.35, shape: 2, driftDur: 35, drift: -3.2, spinDur: 240 },
+  { left: 80, top: 40, size: 4.8, depth: 0.75, shape: 0, driftDur: 28, drift: 3.8, spinDur: 165 },
+  { left: 88, top: 9, size: 2.6, depth: 0.25, shape: 1, driftDur: 42, drift: -2.2, spinDur: 270 },
+  { left: 95, top: 58, size: 7.4, depth: 1, shape: 2, driftDur: 25, drift: 4.6, spinDur: 145 },
+  { left: 37, top: 76, size: 3, depth: 0.45, shape: 0, driftDur: 33, drift: -2.6, spinDur: 220 },
+  { left: 50, top: 84, size: 4.2, depth: 0.65, shape: 1, driftDur: 27, drift: 3.4, spinDur: 180 },
+]
+// LES TOURS BRISÉES de la cité de Titan, à l'horizon : `left`/`w` en % de la colonne, `h` en vh.
+// Toutes en silhouette (aucune lumière : plus personne n'habite là).
+const TITAN_TOWERS = [
+  { left: -2, w: 9, h: 7 },
+  { left: 8, w: 6, h: 11 },
+  { left: 15, w: 11, h: 5.5 },
+  { left: 27, w: 7, h: 9.5 },
+  { left: 35, w: 9, h: 6.5 },
+  { left: 45, w: 6, h: 12 },
+  { left: 52, w: 10, h: 5 },
+  { left: 63, w: 7, h: 8.5 },
+  { left: 71, w: 11, h: 6 },
+  { left: 83, w: 6, h: 10.5 },
+  { left: 90, w: 10, h: 7.5 },
+]
+const TITAN_STARS = 44
+const TITAN_ASH = 26
+// SURPRISE « LE CLAQUEMENT ». Les six gemmes montent en puissance (~2,6 s), un FLASH blanc et une
+// onde de choc partent du Gantelet, puis LE MONDE SE DÉSAGRÈGE : les couches se désaturent et
+// s'effacent tandis que la poussière s'envole, dans un silence noir — avant que tout se reforme.
+// À GARDER en phase avec les keyframes `titanSnap*` / `tgCharge` (index.css).
+const TITAN_SNAP_TEST = false
+const TITAN_SNAP_MS = 13_000 // charge (2,6 s) + flash + poussière tenue (5,4 s) + retour du monde (5 s)
+const TITAN_SNAP_GAP_MIN_MS = TITAN_SNAP_TEST ? 9000 : 160_000 // 2 min 40
+const TITAN_SNAP_GAP_MAX_MS = TITAN_SNAP_TEST ? 15_000 : 280_000 // 4 min 40
+// Poussière du Claquement : bien plus dense que les cendres permanentes (c'est un monde qui part).
+const TITAN_DUST = 90
+
+function TitanDecor({ stones }: { stones?: string[] }) {
+  const side = useContext(DecorSideContext)
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  // Étoiles de la nébuleuse (bande haute), chacune scintillant à son rythme.
+  const [stars] = useState(() =>
+    Array.from({ length: TITAN_STARS }, () => ({
+      left: Math.random() * 100, // %
+      top: Math.random() * 34, // vh
+      size: 0.12 + Math.random() * 0.26, // vh
+      dur: 2.6 + Math.random() * 4.5, // s
+      delay: -(Math.random() * 7), // s
+      op: 0.4 + Math.random() * 0.55,
+    })),
+  )
+  // CENDRES permanentes : elles montent du sol en ondulant, en fondu aux deux extrémités.
+  const [ash] = useState(() =>
+    Array.from({ length: TITAN_ASH }, () => ({
+      left: Math.random() * 100, // %
+      size: 0.18 + Math.random() * 0.34, // vh
+      dur: 9 + Math.random() * 9, // s (montée lente : l'air est mort)
+      delay: -(Math.random() * 18), // s
+      sway: (Math.random() < 0.5 ? -1 : 1) * (1.5 + Math.random() * 4), // vh
+      swayDur: 3.4 + Math.random() * 3, // s
+      brown: Math.random() < 0.5, // cendre grise ou poussière brune
+    })),
+  )
+  // POUSSIÈRE du Claquement : elle part du bas ET du milieu (le monde se défait partout), monte en
+  // dérivant, départs échelonnés sur la phase « poussière » de la séquence.
+  const [dust] = useState(() =>
+    Array.from({ length: TITAN_DUST }, () => ({
+      left: Math.random() * 100, // %
+      bottom: Math.random() * 70, // vh (elles ne naissent pas toutes au sol)
+      size: 0.2 + Math.random() * 0.5, // vh
+      dur: 3.5 + Math.random() * 3.5, // s
+      delay: 2.6 + Math.random() * 3.2, // s (après le flash, jamais avant)
+      dx: (Math.random() - 0.5) * 16, // vw
+      brown: Math.random() < 0.55, // gris cendre ou brun terreux
+    })),
+  )
+  // SURPRISE : `snap` porte un compteur qui sert de clé React (rejoue les animations). `null` = le
+  // monde tourne normalement.
+  const [snap, setSnap] = useState<{ run: number } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let run = 0
+    const fire = () => {
+      setSnap({ run: ++run })
+      clear = setTimeout(() => setSnap(null), TITAN_SNAP_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(TITAN_SNAP_GAP_MIN_MS + Math.random() * (TITAN_SNAP_GAP_MAX_MS - TITAN_SNAP_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(TITAN_SNAP_TEST ? 3000 : 80_000 + Math.random() * 50_000) // 1er Claquement : 1 min 20 à 2 min 10
+    // MODE TEST : claque des doigts à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  // La colonne du décor déborde de 10 % vers son bord EXTÉRIEUR (cf. App.tsx) → son axe `left:50%`
+  // n'est plus le centre visible. On recale le Gantelet (et l'onde de choc, qui en part) de 5 % vers
+  // le bord INTÉRIEUR, comme le minuteur d'`atmosfear`.
+  const gauntletLeft = side === 'right' ? '45%' : '55%'
+  const captured = stones ?? []
+  return (
+    <div
+      className={`titan-decor${snap ? ' is-snap' : ''}`}
+      style={{ '--tg-left': gauntletLeft } as CSSProperties}
+      aria-hidden
+    >
+      {/* LE MONDE : tout ce que le Claquement réduit en poussière. */}
+      <div className="titan-world">
+        {/* La nébuleuse : deux nappes qui dérivent en sens contraire, très lentement. */}
+        <div className="titan-nebula" />
+        <div className="titan-nebula titan-nebula--2" />
+        {/* Les ÉTOILES, derrière tout le reste. */}
+        <div className="titan-stars">
+          {stars.map((s, i) => (
+            <span
+              key={`ti-star-${i}`}
+              className="titan-star"
+              style={
+                {
+                  left: `${s.left}%`,
+                  top: `${s.top}vh`,
+                  width: `${s.size}vh`,
+                  height: `${s.size}vh`,
+                  animationDuration: `${s.dur}s`,
+                  animationDelay: `${s.delay}s`,
+                  '--op': s.op,
+                } as CSSProperties
+              }
+            />
+          ))}
+        </div>
+        {/* LES TOURS BRISÉES à l'horizon (silhouettes), puis le SOL et sa brume de poussière. */}
+        <div className="titan-towers">
+          {TITAN_TOWERS.map((t, i) => (
+            <span
+              key={`ti-tower-${i}`}
+              className={`titan-tower titan-tower--${i % 3}`}
+              style={{ left: `${t.left}%`, width: `${t.w}%`, height: `${t.h}vh` }}
+            />
+          ))}
+        </div>
+        <div className="titan-ground" />
+        <div className="titan-haze" />
+        {/* LES BLOCS DE LA PLANÈTE ÉCLATÉE : enveloppe = dérive lente (montée/descente), enfant =
+            rotation sur soi-même. La profondeur (`depth`) règle taille perçue, pâleur et flou. */}
+        {TITAN_ROCKS.map((r, i) => (
+          <span
+            key={`ti-rock-${i}`}
+            className="titan-rock-drift"
+            style={
+              {
+                left: `${r.left}%`,
+                top: `${r.top}vh`,
+                width: `${r.size}vh`,
+                height: `${r.size}vh`,
+                animationDuration: `${r.driftDur}s`,
+                animationDelay: `-${i * 1.7}s`,
+                '--drift': `${r.drift}vh`,
+                // Au fond : pâle, flou et effacé ; au premier plan : net et sombre.
+                opacity: 0.3 + r.depth * 0.6,
+                filter: `blur(${(1 - r.depth) * 0.34}vh)`,
+              } as CSSProperties
+            }
+          >
+            <span
+              className="titan-rock"
+              style={{
+                clipPath: TITAN_ROCK_SHAPES[r.shape],
+                animationDuration: `${r.spinDur}s`,
+                // Roche de Titan : rouille éclairée par la nébuleuse (le haut capte le violet).
+                background: `linear-gradient(150deg, #6b4a52 0%, #4a2f3c 45%, #241722 100%)`,
+              }}
+            />
+          </span>
+        ))}
+        {/* LES CENDRES qui montent du sol (dérive latérale > montée). */}
+        <div className="titan-ashes">
+          {ash.map((a, i) => (
+            <span
+              key={`ti-ash-${i}`}
+              className="titan-ash-rise"
+              style={{ left: `${a.left}%`, animationDuration: `${a.dur}s`, animationDelay: `${a.delay}s` }}
+            >
+              <span
+                className="titan-ash-sway"
+                style={{ animationDuration: `${a.swayDur}s`, '--sway': `${a.sway}vh` } as CSSProperties}
+              >
+                <span
+                  className={`titan-ash${a.brown ? ' titan-ash--brown' : ''}`}
+                  style={{ width: `${a.size}vh`, height: `${a.size}vh` }}
+                />
+              </span>
+            </span>
+          ))}
+        </div>
+      </div>
+      {/* LE GANTELET DE L'INFINI — la JAUGE. Son halo grandit avec le nombre de Pierres serties
+          (`--lit`) ; chaque gemme ne s'allume que si SA Pierre est capturée. */}
+      <div className="titan-gauntlet" style={{ '--lit': captured.length } as CSSProperties}>
+        <span className="tg-aura" />
+        {/* Le Gantelet : l'illustration du dos des cartes Pierre, bords fondus en CSS. Ses six
+            logements sont dessinés VIDES — il n'y a qu'à y poser les gemmes. */}
+        <img className="tg-img" src={TITAN_GAUNTLET} alt="" />
+        {/* Les 6 gemmes, chacune dans son logement (positions relevées sur l'illustration). */}
+        {TITAN_STONES.map((s) => (
+          <span
+            key={s.id}
+            className={`tg-gem${captured.includes(s.id) ? ' is-lit' : ''}`}
+            style={{ left: `${s.x}%`, top: `${s.y}%`, width: `${s.d}%`, '--c': s.c } as CSSProperties}
+          />
+        ))}
+      </div>
+      {/* SURPRISE « LE CLAQUEMENT » : la charge, le flash, l'onde de choc, le silence noir et la
+          poussière. Les gemmes, elles, sont mises en charge par la classe `is-snap` du décor. */}
+      {snap && (
+        <div className="titan-snap" key={snap.run}>
+          <span className="titan-charge" />
+          <span className="titan-flash" />
+          <span className="titan-shock" />
+          <span className="titan-void" />
+          {dust.map((d, i) => (
+            <span
+              key={`ti-dust-${i}`}
+              className="titan-dust-rise"
+              style={
+                {
+                  left: `${d.left}%`,
+                  bottom: `${d.bottom}vh`,
+                  animationDuration: `${d.dur}s`,
+                  animationDelay: `${d.delay}s`,
+                  '--dx': `${d.dx}vw`,
+                } as CSSProperties
+              }
+            >
+              <span
+                className={`titan-dust${d.brown ? ' titan-dust--brown' : ''}`}
+                style={{ width: `${d.size}vh`, height: `${d.size}vh` }}
+              />
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="titan-vignette" />
+    </div>
+  )
+}
+
 function renderDecorBody(
   decor: VillainDecorData,
   side?: 'left' | 'right',
   objectivePct?: number,
   timerRunning?: boolean,
   opponentVillain?: VillainKey | string,
+  capturedStones?: string[],
 ) {
   switch (decor.kind) {
     case 'film':
@@ -8615,6 +11832,16 @@ function renderDecorBody(
       return <UpsideDownDecor />
     case 'felGate':
       return <FelGateDecor />
+    case 'otherworld':
+      return <OtherworldDecor />
+    case 'federation':
+      return <FederationDecor />
+    case 'haddonfield':
+      return <HaddonfieldDecor />
+    case 'ultronFactory':
+      return <UltronFactoryDecor objectivePct={objectivePct} />
+    case 'graceField':
+      return <GraceFieldDecor decor={decor} />
     case 'rift':
       return <RiftDecor />
     case 'radiance':
@@ -8661,6 +11888,8 @@ function renderDecorBody(
       return <ImageDecor decor={decor} />
     case 'monopoly':
       return <MonopolyDecor decor={decor} />
+    case 'titan':
+      return <TitanDecor stones={capturedStones} />
     default:
       return null
   }

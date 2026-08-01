@@ -143,6 +143,7 @@ import { GameTimer } from './components/GameTimer'
 import { TurnSplash } from './components/TurnSplash'
 import { BackgroundAnimation } from './components/BackgroundAnimation'
 import { VillainDecor } from './components/VillainDecor'
+import { TITAN_STONE_IDS } from './villainDecor'
 import { objectiveScore, pickBestPendingAction, pickRecoverCandidate } from '../ai/heuristicBot'
 import { objectiveCriticalCardIds } from '../ai/enumerate'
 import { VILLAIN_STRATEGY } from '../ai/villainStrategy'
@@ -1878,6 +1879,13 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   // Mode test — Seigneur des clés : surcharge de la progression d'objectif (0→100) par côté pour
   // tester la phase de lune du décor `atmosfear`. `null` = utiliser le % réel de l'objectif.
   const [atmosfearObjOverride, setAtmosfearObjOverride] = useState<{ left: number | null; right: number | null }>({
+    left: null,
+    right: null,
+  })
+  // Mode test — Thanos : surcharge du NOMBRE de Pierres d'Infinité serties (0→6) par côté, pour voir
+  // s'allumer les gemmes du Gantelet du décor `titan` sans avoir à les capturer en partie. `null` =
+  // utiliser les Pierres réellement capturées.
+  const [thanosStonesOverride, setThanosStonesOverride] = useState<{ left: number | null; right: number | null }>({
     left: null,
     right: null,
   })
@@ -6626,6 +6634,15 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     left: atmosfearObjOverride.left ?? atmosfearObjReal.left,
     right: atmosfearObjOverride.right ?? atmosfearObjReal.right,
   }
+  // Pierres d'Infinité CAPTURÉES (zone Compétences) par côté, pour les gemmes du Gantelet du décor de
+  // Thanos. En mode test, une surcharge manuelle (`thanosStonesOverride`) sertit les N premières
+  // Pierres à la place des vraies.
+  const capturedStones = (seat: 0 | 1, over: number | null) =>
+    over === null ? (state.players[seat].stoneSkills ?? []).map((c) => c.cardId) : TITAN_STONE_IDS.slice(0, over)
+  const thanosStones = {
+    left: capturedStones(0, thanosStonesOverride.left),
+    right: capturedStones(1, thanosStonesOverride.right),
+  }
 
   return (
     <div
@@ -6656,11 +6673,11 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
             gouttière `px-3` (sur un item de grille étiré, une marge négative AGRANDIT la
             boîte de ce côté) → on ne voit plus le trait qui délimitait le décor. */}
         <div className="relative overflow-hidden" style={{ marginLeft: '-10%' }}>
-          <VillainDecor villain={humanDecorKey} side="left" opponentVillain={opponentDecorKey} objectivePct={atmosfearObjPct.left} timerRunning={gameTimerRunning} />
+          <VillainDecor villain={humanDecorKey} side="left" opponentVillain={opponentDecorKey} objectivePct={atmosfearObjPct.left} timerRunning={gameTimerRunning} capturedStones={thanosStones.left} />
         </div>
         <div className="hidden lg:block" />
         <div className="relative overflow-hidden" style={{ marginRight: '-10%' }}>
-          <VillainDecor villain={opponentDecorKey} side="right" opponentVillain={humanDecorKey} objectivePct={atmosfearObjPct.right} timerRunning={gameTimerRunning} />
+          <VillainDecor villain={opponentDecorKey} side="right" opponentVillain={humanDecorKey} objectivePct={atmosfearObjPct.right} timerRunning={gameTimerRunning} capturedStones={thanosStones.right} />
         </div>
       </div>
       {/* Décor animé : juste au-dessus du fond, derrière toute l'UI. Visible là où
@@ -6784,9 +6801,10 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
                         >
                           ✨ Surprise{surpCd != null ? ` — ${surpCd}s` : ''}
                         </button>
-                        {/* Seigneur des clés : surcharge de la progression d'objectif (0→100) pour
-                            tester la phase de lune du décor. Reset = revenir au % réel. */}
-                        {vk === 'custom-seigneur-cles' && (
+                        {/* Décors branchés sur la progression d'objectif : surcharge du % (0→100)
+                            pour les tester. Seigneur des clés = la phase de lune ; Ultron = le
+                            nombre d'yeux allumés dans l'armée. Reset = revenir au % réel. */}
+                        {(vk === 'custom-seigneur-cles' || vk === 'custom-ultron') && (
                           <span className="ml-1 flex items-center gap-1 text-xs text-white/70">
                             <span className="shrink-0">Obj.&nbsp;%</span>
                             <input
@@ -6803,6 +6821,31 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
                             <button
                               onClick={() => setAtmosfearObjOverride((o) => ({ ...o, [busSide]: null }))}
                               title="Revenir au pourcentage réel de l'objectif"
+                              className="rounded border border-white/20 px-1.5 py-0.5 text-white/80 hover:bg-white/10"
+                            >
+                              ↺
+                            </button>
+                          </span>
+                        )}
+                        {/* Thanos : nombre de Pierres serties (0→6) pour voir s'allumer les gemmes du
+                            Gantelet du décor. Reset = revenir aux Pierres réellement capturées. */}
+                        {vk === 'thanos' && (
+                          <span className="ml-1 flex items-center gap-1 text-xs text-white/70">
+                            <span className="shrink-0">Pierres</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={6}
+                              value={thanosStones[busSide].length}
+                              onChange={(e) => {
+                                const v = Math.max(0, Math.min(6, Math.round(Number(e.target.value) || 0)))
+                                setThanosStonesOverride((o) => ({ ...o, [busSide]: v }))
+                              }}
+                              className="w-12 rounded border border-white/20 bg-black/40 px-1 py-0.5 text-white/90"
+                            />
+                            <button
+                              onClick={() => setThanosStonesOverride((o) => ({ ...o, [busSide]: null }))}
+                              title="Revenir aux Pierres réellement capturées"
                               className="rounded border border-white/20 px-1.5 py-0.5 text-white/80 hover:bg-white/10"
                             >
                               ↺
@@ -7279,7 +7322,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
             <div className="piles-secondaires flex items-start justify-center pt-1" style={{ width: `${LOCATIONS_LEFT}%` }}>
               <AuDelaPile player={user} uprightWidth="w-20" />
               <IngredientsPile player={user} uprightWidth="w-14" />
-              <ArtifactsPile player={user} uprightWidth="w-14" />
+              <ArtifactsPile player={user} uprightWidth="w-12" />
               <ClockPile player={user} />
               <CapturePile player={user} uprightWidth="w-9" />
               <StoneSkillsPile player={user} uprightWidth="w-9" />
@@ -8064,8 +8107,9 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
           )}
           {/* La main du joueur est désormais ancrée en bas de l'écran (éventail). */}
           {/* Défausse + Pioche Vilain : côte à côte, verticales, poussées en bas
-              (remontées de 20 px du bas via mb-5). */}
-          <div className="mt-auto mb-5 flex justify-end gap-3 px-2 pt-1">
+              (remontées de 8 px du bas via mb-2 — cette marge est DANS la zone
+              défilable de la colonne, donc chaque pixel de trop y crée du scroll). */}
+          <div className="mt-auto mb-2 flex justify-end gap-3 px-2 pt-1">
             <DeckPiles player={user} kind="villain" playerIndex={HUMAN} show="discard" upright uprightWidth="w-28" zoomClass="bottom-0 right-full mr-1" />
             <DeckPiles player={user} kind="villain" playerIndex={HUMAN} show="deck" upright uprightWidth="w-28" />
           </div>
@@ -8335,7 +8379,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
             <div className="piles-secondaires flex items-start justify-center pt-1" style={{ width: `${LOCATIONS_LEFT}%` }}>
               <AuDelaPile player={bot} uprightWidth="w-20" />
               <IngredientsPile player={bot} uprightWidth="w-14" />
-              <ArtifactsPile player={bot} uprightWidth="w-14" />
+              <ArtifactsPile player={bot} uprightWidth="w-12" />
               <ClockPile player={bot} />
               <CapturePile player={bot} uprightWidth="w-9" />
               <StoneSkillsPile player={bot} uprightWidth="w-9" />
@@ -8374,7 +8418,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
           </div>
           {/* Bas : main du bot CENTRÉE sous le plateau ; défausse/pioche Vilain en
               absolu à droite (pour ne pas décaler la main). */}
-          <div className="relative mt-auto mb-5 flex justify-center px-2 pt-1">
+          <div className="relative mt-auto mb-2 flex justify-center px-2 pt-1">
             <div data-hand-zone={BOT}>
             <Hand
               hand={bot.hand.filter((c) => !c.isOmnidroid)}

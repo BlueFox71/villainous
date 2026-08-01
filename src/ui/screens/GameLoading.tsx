@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useGameStore, villainKeyOf, villainEntry, type VillainKey } from '../store/gameStore'
 import { villainDecor, decorAssets } from '../villainDecor'
 import { VILLAIN_COLOR, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
-import { PawnLoader } from '../components/PawnLoader'
+import { PawnLoader, type LoaderPawn } from '../components/PawnLoader'
 
 interface Props {
   /** Entrer dans la partie (le décor est préchargé). */
@@ -32,9 +32,12 @@ export function GameLoading({ onReady }: Props) {
   const [progress, setProgress] = useState(0)
 
   // Pions des 2 vilains en jeu (inclut les customs, absents du réservoir natif du PawnLoader)
-  // ajoutés au carrousel. Figé au montage.
-  const [inPlayPawns] = useState<string[]>(() =>
-    keys.map((k) => villainEntry(k)?.def.pawnImage).filter((s): s is string => !!s),
+  // ajoutés au carrousel, avec leur hauteur calibrée. Figé au montage.
+  const [inPlayPawns] = useState<LoaderPawn[]>(() =>
+    keys
+      .map((k) => villainEntry(k)?.def)
+      .filter((d): d is NonNullable<typeof d> => !!d?.pawnImage)
+      .map((d) => ({ src: d.pawnImage, heightPx: d.pawnHeightPx })),
   )
 
   // `onReady` capturé dans une ref : l'effet de préchargement ne tourne qu'une fois et ne doit pas

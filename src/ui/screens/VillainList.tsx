@@ -118,17 +118,12 @@ function toggleInSet<T>(prev: Set<T>, value: T): Set<T> {
   return next
 }
 
-/** Filtre développeur tri-état par fonctionnalité. */
-type DevFilter = 'all' | 'yes' | 'no'
-const DEV_FILTER_OPTIONS: { value: DevFilter; label: string }[] = [
-  { value: 'all', label: 'Les deux' },
-  { value: 'yes', label: 'Oui' },
-  { value: 'no', label: 'Non' },
+/** Contenu visuel attendu d'un vilain (suivi dév) : un badge par élément manquant. */
+const VISUAL_FEATURES: { label: string; has: (v: VillainMeta) => boolean }[] = [
+  { label: 'Décor', has: (v) => v.hasDecor },
+  { label: 'Passage', has: (v) => v.hasAnim },
+  { label: 'Surprise', has: (v) => v.hasSurprise },
 ]
-/** Vrai si le vilain passe le filtre tri-état (a la fonctionnalité ou non). */
-function matchesDevFilter(filter: DevFilter, has: boolean): boolean {
-  return filter === 'all' || (filter === 'yes') === has
-}
 
 /** Réglage persistant du nombre de vilains par ligne (2–8). */
 const COLUMNS_LS_KEY = 'villainous:villainList:columns'
@@ -188,11 +183,10 @@ export function VillainList({ onBack }: Props) {
   // ou simulation). On DÉRIVE l'état effectif plutôt que de le synchroniser — ainsi tout
   // le rendu (boutons, glisser-déposer, encadré) redevient inerte dès qu'on simule l'exe.
   const reorderMode = reorderModeRaw && !isDesktopApp
-  // Filtres « Développeur » (masqués en exe) : tri-état par fonctionnalité —
-  // 'all' (les deux), 'yes' (a la fonctionnalité), 'no' (ne l'a pas).
-  const [decorFilter, setDecorFilter] = useState<DevFilter>('all')
-  const [animFilter, setAnimFilter] = useState<DevFilter>('all')
-  const [surpriseFilter, setSurpriseFilter] = useState<DevFilter>('all')
+  // Suivi « Développeur » (masqué en exe) : affiche sur chaque carte un badge par
+  // élément visuel MANQUANT (décor permanent, animation de passage, surprise).
+  const [showMissingVisualsRaw, setShowMissingVisualsRaw] = useState(false)
+  const showMissingVisuals = showMissingVisualsRaw && !isDesktopApp
 
   // Vilains PUBLIÉS (« Terminés » dans l'Atelier) : ils rejoignent la galerie comme
   // n'importe quel vilain. Placés en fin de leur section d'origine (release élevé).
@@ -253,10 +247,7 @@ export function VillainList({ onBack }: Props) {
         (difficulties.size === 0 || difficulties.has(v.difficulty)) &&
         (origins.size === 0 || origins.has(v.origin)) &&
         (!onlyFavorites || favSet.has(v.key)) &&
-        (playedFilter === 'all' || (playedFilter === 'played') === isPlayed(v.key)) &&
-        matchesDevFilter(decorFilter, v.hasDecor) &&
-        matchesDevFilter(animFilter, v.hasAnim) &&
-        matchesDevFilter(surpriseFilter, v.hasSurprise),
+        (playedFilter === 'all' || (playedFilter === 'played') === isPlayed(v.key)),
     ).map((v) => ({ kind: 'villain', name: v.name, origin: v.origin, release: v.release, difficulty: v.difficulty, meta: v }))
     const rank = orderRank(customOrder)
     const keyOf = (it: GridItem) => it.meta.key
@@ -267,26 +258,20 @@ export function VillainList({ onBack }: Props) {
       // puis ordre de sortie pour les vilains non encore placés.
       return rank(keyOf(a)) - rank(keyOf(b)) || a.release - b.release
     })
-  }, [query, difficulties, origins, sort, onlyFavorites, playedFilter, favSet, stats, decorFilter, animFilter, surpriseFilter, publishedMetas, customOrder, isDesktopApp])
+  }, [query, difficulties, origins, sort, onlyFavorites, playedFilter, favSet, stats, publishedMetas, customOrder, isDesktopApp])
 
   const hasFilters =
     query.trim() !== '' ||
     difficulties.size > 0 ||
     origins.size > 0 ||
     onlyFavorites ||
-    playedFilter !== 'all' ||
-    decorFilter !== 'all' ||
-    animFilter !== 'all' ||
-    surpriseFilter !== 'all'
+    playedFilter !== 'all'
   const resetFilters = () => {
     setQuery('')
     setDifficulties(new Set())
     setOrigins(new Set())
     setOnlyFavorites(false)
     setPlayedFilter('all')
-    setDecorFilter('all')
-    setAnimFilter('all')
-    setSurpriseFilter('all')
   }
 
   // Entrer/sortir du mode « Modifier l'ordre des villains » : on remet le tri sur
@@ -422,6 +407,25 @@ export function VillainList({ onBack }: Props) {
           <span className="w-fit rounded-full border border-fuchsia-300/40 bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-semibold text-fuchsia-100">
             🎭 {v.variantKeys.length} versions
           </span>
+        )}
+        {/* Suivi dév : un badge rouge par élément visuel manquant (rien à faire → badge vert). */}
+        {showMissingVisuals && (
+          <div className="flex flex-wrap gap-1">
+            {VISUAL_FEATURES.every((f) => f.has(v)) ? (
+              <span className="rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-100">
+                ✓ Complet
+              </span>
+            ) : (
+              VISUAL_FEATURES.filter((f) => !f.has(v)).map((f) => (
+                <span
+                  key={f.label}
+                  className="rounded-full border border-rose-300/40 bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold text-rose-100"
+                >
+                  ✗ {f.label}
+                </span>
+              ))
+            )}
+          </div>
         )}
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-white/40">
@@ -702,48 +706,28 @@ export function VillainList({ onBack }: Props) {
             </div>
           </div>
 
-          {/* Section Développeur : suivi du contenu visuel, masquée dans l'exe (joueurs). */}
+          {/* Section Développeur : suivi du contenu visuel, masquée dans l'exe (joueurs).
+              Une coche affiche sur chaque carte les éléments visuels qui MANQUENT. */}
           {!isDesktopApp && (
-            <div className="flex flex-col gap-3 rounded-lg border border-dashed border-white/15 p-3">
+            <div className="flex flex-col gap-2 rounded-lg border border-dashed border-white/15 p-3">
               <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-emerald-300/70">
                 Développeur
               </span>
-              <label className="flex flex-col gap-1 text-sm text-white/80">
-                Arrière-plan animé
-                <select
-                  value={decorFilter}
-                  onChange={(e) => setDecorFilter(e.target.value as DevFilter)}
-                  className="rounded-lg border border-white/15 bg-black px-2 py-1 text-sm text-white focus:border-emerald-300/50 focus:outline-none"
-                >
-                  {DEV_FILTER_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value} className="bg-black text-white">{o.label}</option>
-                  ))}
-                </select>
+              <label className="flex cursor-pointer items-start gap-2 text-sm text-white/80">
+                <input
+                  type="checkbox"
+                  checked={showMissingVisuals}
+                  onChange={(e) => setShowMissingVisualsRaw(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-400"
+                />
+                Afficher les décors/animations manquants
               </label>
-              <label className="flex flex-col gap-1 text-sm text-white/80">
-                Animation de passage
-                <select
-                  value={animFilter}
-                  onChange={(e) => setAnimFilter(e.target.value as DevFilter)}
-                  className="rounded-lg border border-white/15 bg-black px-2 py-1 text-sm text-white focus:border-emerald-300/50 focus:outline-none"
-                >
-                  {DEV_FILTER_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value} className="bg-black text-white">{o.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-white/80">
-                Animation surprise
-                <select
-                  value={surpriseFilter}
-                  onChange={(e) => setSurpriseFilter(e.target.value as DevFilter)}
-                  className="rounded-lg border border-white/15 bg-black px-2 py-1 text-sm text-white focus:border-emerald-300/50 focus:outline-none"
-                >
-                  {DEV_FILTER_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value} className="bg-black text-white">{o.label}</option>
-                  ))}
-                </select>
-              </label>
+              {showMissingVisuals && (
+                <span className="text-[11px] leading-snug text-white/50">
+                  Chaque carte affiche un badge par élément absent : décor permanent, animation
+                  de passage, animation surprise.
+                </span>
+              )}
             </div>
           )}
 

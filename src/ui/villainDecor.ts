@@ -15,14 +15,26 @@ export type VillainDecor =
   // rayures verticales qui vont et viennent en tremblant, poussières qui
   // clignotent, vignette sépia et perforations qui défilent sur les bords
   // (Pat Hibulaire — le cinéma muet de Mickey & l'âge d'or des cartoons).
+  // SURPRISE « LA PELLICULE CASSE » : le cadre DÉCROCHE (l'image saute, la barre noire
+  // d'interimage remonte l'écran de plus en plus vite), une BRÛLURE perce le photogramme et le
+  // dévore jusqu'au blanc, puis on REMBOBINE — l'amorce défile, le compte à rebours du projecteur
+  // balaie son cercle (3-2-1), un flash, et la pellicule repart. 100 % CSS.
   | { kind: 'film' }
   // `sand` : sablier — un filet de sable tombe du haut vers le bas (concentré au
   // centre, comme le col d'un sablier) tandis qu'un niveau de sable se remplit au
   // fond puis se vide en boucle (sablier qu'on retourne) (Jafar — Aladdin).
+  // SURPRISE « LA TEMPÊTE DE SABLE » : le vent se lève et le sablier PLOIE (cisaillement +
+  // poussée, il se désature), puis la tempête DÉFERLE — un voile ocre traverse la colonne,
+  // trois NAPPES de sable filent en travers, de grosses BOURRASQUES la balaient, une DUNE
+  // monte du bas et la visibilité tombe presque à zéro — avant que tout se dégage.
   | { kind: 'sand' }
   // `space` : champ d'étoiles (points blancs) défilant vers la droite, avec
   // profondeur (étoiles proches plus rapides et en traînées) → on file dans l'espace
   // comme à travers le hublot d'une fusée (L'Imposteur — Among Us).
+  // SURPRISE « SABOTAGE — FUSION DU RÉACTEUR » : l'alerte rouge s'empare de la colonne (les
+  // étoiles rougissent, une sirène pulse, des bandes de danger défilent en haut et en bas), tout
+  // TREMBLE de plus en plus fort pendant que le panneau égrène son COMPTE À REBOURS, puis un
+  // FLASH à zéro laisse place à « Sabotage réparé ». 100 % CSS + texte.
   | { kind: 'space' }
   // `fire` : un mur de flammes permanent en bas de l'écran (sprite vertical joué en
   // boucle), teinté via `tint`. Paramétrable → réutilisable (Scar : feu vert…).
@@ -45,14 +57,25 @@ export type VillainDecor =
   // poussière de sorcellerie violette scintille, une potion mijote dans un verre (changement
   // de couleurs, éclair, vaporisation) et des POMMES empoisonnées lévitent un peu partout
   // (Méchante Reine — Blanche-Neige).
-  | { kind: 'evilQueen'; src: string; gradient?: string; apple: string }
+  // SURPRISE « MIROIR, MON BEAU MIROIR » : la fumée s'aspire vers le centre et se rassemble en un
+  // grand MIROIR ovale (cadre doré en CSS, glace noire) ; un tourbillon de FLAMMES VERTES monte
+  // dans la glace, puis le MASQUE (`mirrorMask`) se matérialise au milieu des flammes et se tient
+  // en pulsant ; enfin il se dissout vers le haut et le miroir se défait en fumée. Le reste du
+  // décor (bulles, poussière, pommes, potion) s'efface le temps de l'apparition.
+  | { kind: 'evilQueen'; src: string; gradient?: string; apple: string; mirrorMask: string }
   // `goldDust` : une fine poussière d'or dérive lentement (mouvement flottant, vitesses
   // et tailles variées) ; quelques particules scintillent (éclat de reflet). Voile chaud
   // doré + vignette (le trésor hors champ) (Prince Jean — Robin des Bois, la cupidité).
+  // SURPRISE « LE COFFRE DÉBORDE… ET SE VIDE » : un DÉLUGE de pièces et de diamants se déverse du
+  // haut, le MAGOT s'empile en bas de la colonne (le tas grossit, des éclats le parcourent), puis
+  // il s'AFFAISSE et se vide — l'or lui a filé entre les doigts. 100 % CSS (assets déjà là).
   | { kind: 'goldDust' }
   // `thorns` : une forêt de ronces — des épines sombres montent du bas en oscillant
   // légèrement, sur fond de lueur verte pulsante (sa magie) et d'étincelles vertes qui
-  // s'élèvent (Maléfique — La Belle au bois dormant).
+  // s'élèvent (Maléfique — La Belle au bois dormant). SURPRISE périodique « Touchez le
+  // fuseau… » : la boule verte s'efface, sa magie enfle au centre puis se rétracte sur la
+  // pointe d'un ROUET qui se matérialise et s'emballe, avant que la piqûre n'envoie deux
+  // ondes vertes sur tout l'écran.
   | { kind: 'thorns' }
   // `forest` : une forêt sombre — des troncs d'arbres verticaux montent au-delà du haut de
   // l'écran (on ne voit pas le feuillage), avec profondeur (arbres lointains plus clairs/flous)
@@ -60,9 +83,17 @@ export type VillainDecor =
   | { kind: 'forest' }
   // `petals` : des pétales de roses rouges tombent du haut en voletant (oscillation latérale)
   // et en tournoyant, sur un fond cramoisi sombre (Reine de Cœur — Alice au pays des merveilles).
+  // SURPRISE « QU'ON LUI COUPE LA TÊTE ! » : les pétales se FIGENT en plein vol, le fond vire au
+  // ROUGE SANG et la vignette se referme, puis le cri BALAIE tout le champ de pétales vers le haut
+  // pendant que deux ondes en forme de CŒUR se propagent ; la sentence s'abat comme un coup de
+  // TAMPON, dans une secousse, avant que tout retombe. 100 % CSS + texte.
   | { kind: 'petals' }
   // `water` : une mer de nuit — des reflets de lune (traînées horizontales claires) ondulent
   // et scintillent sur l'eau dans le bas de l'écran, sur un fond bleu-nuit (Capitaine Crochet).
+  // SURPRISE « LA BORDÉE » : le JOLLY ROGER, mouillé dans le lagon de l'illustration de Neverland,
+  // CANONNE LE CIEL — comme quand Crochet tire sur Peter Pan en plein vol. Cinq coups échelonnés :
+  // l'éclair de bouche claque sur le navire (avec son reflet sur l'eau), le boulet monte en ARC en
+  // semant une traînée de fumée, puis il ÉCLATE en plein ciel (flash, bouffée, éclats). 100 % CSS.
   | { kind: 'water' }
   // `grotto` : la Grotte d'Ursula — eau vert-bleu très sombre (fort vignettage), des colonnes de
   // VAPEUR ROSE/magenta montent du fond en s'enroulant (les évents de la grotte), une lueur rosée
@@ -107,6 +138,11 @@ export type VillainDecor =
   // `laBonneFee` : la MAGIE ROSE de la Bonne Fée (Marraine de Shrek) qui retombe — des volutes de fumée rose
   // lumineuse qui TOMBENT doucement du haut en dérivant et en se dissipant, sur un fond violacé, surmontées
   // d'une lueur rose pulsante (la source). 100 % CSS.
+  // SURPRISE « HOLDING OUT FOR A HERO » : le karaoké du bal (Shrek 2) — la salle s'ÉTEINT, puis cinq
+  // POURSUITES de COULEURS différentes (magenta, violet, cyan, or, corail) s'allument et balaient la
+  // scène en se croisant ; tout bat la mesure (voile rose pulsant, ONDES SONORES parties de la scène,
+  // ÉGALISEUR en bas, PAILLETTES, NOTES de musique qui montent) jusqu'au DERNIER ACCORD : les cinq
+  // poursuites se braquent sur le centre, un FLASH blanc claque et la magie rose se rallume. 100 % CSS.
   | { kind: 'laBonneFee' }
   // `cyber` : Sombra (Overwatch) — son interface de piratage. Fond violet très sombre, une PLUIE
   // de code (colonnes de glyphes binaires/symboles qui tombent, tête claire + traîne qui s'estompe)
@@ -152,6 +188,11 @@ export type VillainDecor =
   // rose/magenta gourmand, VERMICELLES colorés (sprinkles) qui tombent en voletant, BOKEH sucré qui
   // dérive et scintille, bande de GLAÇAGE blanc en bas, et la COURSE de Sugar Rush : une PISTE (route) qui
   // défile en bas, des TRAÎNÉES de vitesse et des BONBONS-BOLIDES qui la filent.
+  // SURPRISE « TURBO ! » : le virus se démasque — le monde en sucre se CORROMPT (la scène TRESSAUTE et
+  // se DÉDOUBLE en blanc/cyan comme le bug d'écran de Slenderman, scanlines qui défilent, BANDES
+  // arrachées, balayage cathodique),
+  // la palette rose vire au BLANC-BLEU GLACÉ de Turbo, son nom claque deux fois en gros pixels
+  // dédoublés rouge/cyan, un flash — puis tout se recolle. 100 % CSS + texte.
   | { kind: 'candy' }
   // `jungle` : la jungle À CONTRE-JOUR de Shere Khan (Le Livre de la Jungle). Fond vert-jungle sombre +
   // lueur chaude au centre + vignette, RAIS de lumière chaude qui filtrent, LIANES (images) qui pendent du
@@ -196,15 +237,24 @@ export type VillainDecor =
   // `felGate` : la marée de GANGRENÉ de Gul'dan (Warcraft) — un Draenor mort baigné de magie fel. Fond
   // gris-vert sombre, lueur fel VERT NÉON pulsante au sol (les lieux corrompus) battue par une lueur
   // VIOLETTE du Vide, des VOLUTES de gangrené vertes (et quelques violettes) qui montent en s'enroulant,
-  // et de fines CENDRES de gangrené vertes/violettes qui s'élèvent en scintillant. 100 % CSS
+  // et de fines CENDRES de gangrené vertes/violettes qui s'élèvent en scintillant. SURPRISE :
+  // « le Portail des Ténèbres » — le CONTOUR de la colonne EST l'arche du portail : le pourtour
+  // s'embrase de fel (liseré + halo + fel qui court le long de l'anneau), l'intérieur s'ouvre sur
+  // L'ESPACE (nébuleuse fel/violette + étoiles) dans un flash, et des feux / brumes de gangrené nés
+  // sur le contour sont ASPIRÉS en spirale vers le cœur avant que tout se referme. 100 % CSS
   // (Gul'dan — vilain custom publié).
   | { kind: 'felGate' }
   // `theWorld` : le pouvoir du TEMPS de Dio (JoJo's Bizarre Adventure — son Stand « The World »). Fond
   // nuit du Caire violet/indigo → doré, aura dorée pulsante, un grand MANDALA d'horloge (anneaux +
   // graduations dorées) qui tourne lentement en arrière-plan (visible dans les marges), une HORLOGE
   // dorée nette dans la bande haute (cadran, chiffres ROMAINS, 3 aiguilles qui tournent) et des CHIFFRES
-  // ROMAINS qui flottent en montant et scintillent (or + accents magenta). 100 % CSS. (L'arrêt du temps
-  // « ZA WARUDO! » viendra en surprise plus tard.) (Dio — vilain custom publié.)
+  // ROMAINS qui flottent en montant et scintillent (or + accents magenta). SURPRISE « ZA WARUDO ! » :
+  // le temps DÉFILE de plus en plus vite pendant 3 s (trotteuse qui accélère, cadran qui chauffe), puis
+  // un FLASH GRIS (+ onde de choc gris acier) marque la rupture et TOUT SE FIGE ~10 s — les couches du
+  // décor sont mises en PAUSE et se désaturent (elles reprendront exactement là où elles se sont
+  // arrêtées), des éclats de temps restent suspendus et les NEUF secondes arrêtées défilent en chiffres
+  // romains dans l'horloge éclipsée ; un flash doré rend ses couleurs au monde et le temps reprend son
+  // cours. Aucun texte. 100 % CSS. (Dio — vilain custom publié.)
   | { kind: 'theWorld' }
   // `monopoly` : le PLATEAU de Monopoly (Mr Monopoly). L'image `src` du plateau vu de dessus, affichée
   // en grand CARRÉ centré sur la colonne (sur un fond de table vert feutré + vignette), SURMONTÉE de
@@ -231,6 +281,66 @@ export type VillainDecor =
   // Killaire). Des TIRS de lumière filent de droite à gauche. SURPRISE : les esprits libérés (images)
   // s'élèvent depuis le bas. 100 % CSS (skin custom de Sumbra).
   | { kind: 'radiance' }
+  // `otherworld` : l'AUTRE MONDE de Pyramid Head (Silent Hill). Un ciel SOMBRE et BRUMEUX gris (nappes
+  // de brume qui dérivent lentement + vignette lourde), d'où pendent des CHAÎNES rouillées et des CAGES
+  // suspendues (images) qui se balancent très lentement, pendant que des BRAISES ROUGES montent du bas
+  // en scintillant, sur une lueur rouge sourde qui bat (la rouille incandescente de l'Autre Monde).
+  // SURPRISE « le Passage à l'Autre Monde » : la sirène monte, le monde BASCULE dans une secousse et
+  // tout l'ARRIÈRE-PLAN vire au rouge sang (ciel, brume, cages, chaînes) : le décor PÈLE et découvre
+  // du GRILLAGE ROUILLÉ, le SANG le tache et le strie de coulures, les braises deviennent une NUÉE et
+  // le HALO DU SOLEIL (sceau de Metatron) s'embrase — puis le monde revient au gris. L'UI n'est pas
+  // touchée : la bascule reste dans le décor.
+  | { kind: 'otherworld' }
+  // `federation` : la PASSERELLE DU CROISEUR FÉDÉRAL de Grand Councilwoman (Lilo & Stitch), vue de
+  // l'orbite. Fond bleu profond + vignette, la TRAME HEXAGONALE de son plateau (alvéoles sourdes dont
+  // quelques-unes respirent), l'ARC DE LA PLANÈTE en bas de l'écran nimbé de son liseré d'ATMOSPHÈRE,
+  // des PANNEAUX HOLOGRAPHIQUES cyan dont les lignes clignotent, et un BALAYAGE de scan qui descend
+  // périodiquement. SURPRISE : le RAYON DE CAPTURE — l'écran tremble, un cône de lumière bleue descend
+  // du haut et la trame hexagonale S'ALLUME en une vague qui descend (le champ de confinement se
+  // referme) sur STITCH, happé vers le haut au bas du cône, avant un flash et la dissipation.
+  // 100 % CSS, à l'exception de la silhouette de Stitch.
+  | { kind: 'federation' }
+  // `haddonfield` : la nuit du 31 octobre à Haddonfield (Michael Myers — Halloween). Nuit de
+  // banlieue FROIDE et déserte : silhouettes noires des pavillons au fond (une fenêtre allumée
+  // s'éteint de temps en temps), DEUX LAMPADAIRES blafards de part et d'autre de la rue, une
+  // brume basse qui dérive, des FEUILLES MORTES qui tombent en voletant et roulent au sol, et
+  // la CITROUILLE du générique qui luit en haut, sa flamme vacillante, en dérivant lentement
+  // de gauche à droite. SURPRISE « The Shape » : les lampadaires grésillent et, quand la lumière
+  // revient, Michael est là — silhouette noire immobile, il ne fait RIEN pendant plusieurs
+  // secondes, puis se fond de nouveau dans la nuit.
+  | { kind: 'haddonfield' }
+  // `ultronFactory` : l'USINE DE SOKOVIA (Ultron — Marvel). Un hangar d'acier sombre mordu par une
+  // lueur ROUGE : un CONVOYEUR défile en continu au sol en portant des châssis de drones inertes,
+  // des BRAS ROBOTISÉS pivotent au-dessus de la chaîne en crachant des GERBES D'ÉTINCELLES de
+  // soudure, une poussière métallique flotte, et au fond, dans le noir, les PAIRES D'YEUX ROUGES
+  // de l'armée s'allument rangée par rangée — d'autant plus nombreuses qu'Ultron approche de
+  // L'ÈRE D'ULTRON (l'armée s'éveille avec sa progression d'objectif). 100 % CSS.
+  | { kind: 'ultronFactory' }
+  // `graceField` : le jardin d'enfance d'Isabella (The Promised Neverland) — et son mensonge. La
+  // MAISON de Grace Field (image) posée dans sa PELOUSE (des herbes ondulent au vent, en profondeur),
+  // le GRAND ARBRE sous lequel jouent les enfants, la lisière de FORÊT de feuillus qui la cache du
+  // monde et, tout au fond, LE MUR de béton infranchissable et sa PORTE. Une JOURNÉE défile en boucle (le ciel passe du plein
+  // jour au crépuscule doré puis à la nuit — ses « activités quotidiennes ») : la nuit, les étoiles
+  // sortent, les fenêtres de la maison s'allument et les LUCIOLES gagnent la prairie. Des MATRICULES
+  // à 5 chiffres s'inscrivent en fondu dans le ciel, comme tamponnés. SURPRISE « LA MOISSON » : la
+  // cloche sonne (ondes concentriques depuis le clocheton), le monde se fige et se DÉSATURE, une
+  // lueur ROUGE monte du sol, les FLEURS VIDA (`vida`) — celles qu'on pose sur les corps expédiés —
+  // poussent dans la prairie et leurs pétales dérivent — puis la couleur revient et les lucioles se
+  // rallument. 100 % CSS, hors la maison et les fleurs.
+  | { kind: 'graceField'; home: string; vida: string }
+  // `titan` : TITAN, la planète natale de Thanos — un monde mort, et le GANTELET qui compte ses
+  // Pierres. Ciel de nébuleuse violet/magenta étoilé virant à l'ocre-rouille près du sol, silhouettes
+  // de TOURS BRISÉES à l'horizon, et surtout les BLOCS de la planète éclatée qui dérivent EN
+  // SUSPENSION (la gravité est morte avec elle), pendant que des cendres montent du sol.
+  // Dans la bande haute, LE GANTELET DE L'INFINI sert de JAUGE : ses 6 logements (4 phalanges +
+  // le dos de la main + le pouce) portent chacun une Pierre, ALLUMÉE seulement si Thanos l'a
+  // réellement capturée en Compétences — sur le principe de la lune d'`atmosfear`.
+  // SURPRISE « LE CLAQUEMENT » : les six gemmes montent en puissance, un FLASH blanc et une onde de
+  // choc partent du Gantelet, puis TOUT LE MONDE SE DÉSAGRÈGE EN POUSSIÈRE (les couches se désaturent
+  // et s'effacent tandis que les cendres s'envolent, dans un silence noir) — avant que le monde se
+  // reforme. L'UI n'est pas touchée : la bascule reste dans le décor. Tout est en CSS, à l'exception
+  // du GANTELET lui-même (l'illustration des cartes, cf. `TITAN_GAUNTLET`) (Thanos — Marvel).
+  | { kind: 'titan' }
 
 export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   patHibulaire: { kind: 'film' },
@@ -247,11 +357,13 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   // Méchante Reine (Blanche-Neige) : la fumée de sorcellerie (vidéo teintée violet #472B46 via
   // mix-blend-mode color) surmontée des bulles de potion, de la poussière de sorcellerie violette,
   // de la potion qui mijote dans son verre et des pommes empoisonnées qui lévitent.
+  // Surprise « Miroir, mon beau miroir » : le masque du Miroir magique (`mirrorMask`).
   mechanteReine: {
     kind: 'evilQueen',
     src: '/animations/smoke.mp4',
     gradient: 'linear-gradient(to top, #2e1c2d, #472b46 55%, #5e3a5b)',
     apple: '/animations/apple.png',
+    mirrorMask: '/animations/masque_miroir.webp',
   },
   // Hadès (Hercule) : les Enfers — feu bleu + âmes + braises + lueur + coups de colère.
   hades: { kind: 'underworld' },
@@ -317,6 +429,10 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   // Tamatoa (Vaiana) : l'antre « Shiny / Bling Bling » — fond noir + triangles jaunes floutés et
   // brillants qui défilent vers la droite, sous une pluie permanente de pièces d'or & diamants.
   tamatoa: { kind: 'tamatoa' },
+  // Thanos (Marvel) : Titan, sa planète morte — ciel de nébuleuse, tours brisées, blocs de la planète
+  // éclatée en suspension et cendres qui montent ; le GANTELET de la bande haute compte ses Pierres
+  // (gemme allumée = Pierre capturée). Surprise : LE CLAQUEMENT (tout part en poussière).
+  thanos: { kind: 'titan' },
 }
 
 // Décors des vilains PUBLIÉS (Atelier), indexés par leur id runtime `custom-…`. Le registre natif
@@ -345,6 +461,27 @@ export const CUSTOM_VILLAIN_DECOR: Record<string, VillainDecor> = {
   // Le Seigneur des clés (le Gardien d'Atmosfear) : sa cassette VHS — fond noir + chronomètre
   // MM:SS en haut, centré (#3E4371, police EvanstonTavern). 100 % CSS.
   'custom-seigneur-cles': { kind: 'atmosfear' },
+  // Pyramid Head (Silent Hill) : l'Autre Monde — ciel gris sombre et brumeux, chaînes et cages
+  // suspendues qui se balancent, braises rouges qui montent.
+  'custom-pyramid-head': { kind: 'otherworld' },
+  // Grand Councilwoman (Lilo & Stitch) : la passerelle du croiseur fédéral — trame hexagonale (le motif
+  // de son plateau), arc de la planète et son atmosphère, panneaux holographiques et balayage de scan.
+  'custom-stitch': { kind: 'federation' },
+  // Michael Myers (Halloween) : la nuit du 31 octobre à Haddonfield — pavillons en silhouette,
+  // lampadaire blafard, brume basse, feuilles mortes et la citrouille du générique ; surprise =
+  // « The Shape » (Michael apparaît, immobile, puis disparaît).
+  'custom-michael-meyers': { kind: 'haddonfield' },
+  // Ultron (Marvel) : l'usine de Sokovia — convoyeur, bras robotisés et étincelles de soudure,
+  // et l'armée de drones dont les yeux rouges s'allument au fond à mesure qu'il progresse.
+  'custom-ultron': { kind: 'ultronFactory' },
+  // Isabella (The Promised Neverland) : le jardin d'enfance de Grace Field — la maison dans sa
+  // prairie, la forêt et le mur au fond, une journée qui défile en boucle (jour → crépuscule →
+  // nuit), matricules et lucioles ; surprise = « la Moisson » (la cloche, le rouge, les fleurs Vida).
+  'custom-isabella': {
+    kind: 'graceField',
+    home: '/animations/maison_grace_field.webp',
+    vida: '/animations/fleur_vida.webp',
+  },
 }
 
 /** Décor permanent d'un vilain (natif OU publié) ; undefined si non défini. Un vilain publié a un id
@@ -352,6 +489,36 @@ export const CUSTOM_VILLAIN_DECOR: Record<string, VillainDecor> = {
 export function villainDecor(key: string): VillainDecor | undefined {
   return CUSTOM_VILLAIN_DECOR[key] ?? VILLAIN_DECOR[key as VillainKey]
 }
+
+/** L'illustration du GANTELET DE L'INFINI du décor `titan`, DÉTOURÉE (fond transparent) : source dans
+ *  `assets/animations/thanos/gantelet_thanos.png`, servie en WebP à alpha. Elle vient du DOS des cartes
+ *  Pierre (`public/cards/thanos/back-pierre-de-l-ame.webp`, zone 125,4 400×408) — d'où les logements
+ *  déjà dessinés, sur lesquels `TITAN_STONES` pose les gemmes. Ne pas recadrer sans reprendre les
+ *  positions de `TITAN_STONES` : elles sont exprimées en % de CE cadrage. */
+export const TITAN_GAUNTLET = '/animations/gantelet_thanos.webp'
+
+/** LES 6 PIERRES D'INFINITÉ dans les logements du Gantelet (décor `titan`, Thanos). `id` = le `cardId`
+ *  de la carte (c'est lui qui permet d'allumer la BONNE gemme), `c` sa couleur, `x`/`y` le centre du
+ *  logement et `d` son diamètre, tous en % de la LARGEUR de l'illustration `TITAN_GAUNTLET` (donc
+ *  indépendants de la taille à l'écran).
+ *
+ *  Les positions sont RELEVÉES sur l'illustration (chaque dos de carte allume le logement de SA
+ *  Pierre : un diff entre les 6 dos donne les six centres au pixel), d'où cet arrangement, qui est
+ *  celui du Gantelet dessiné : Âme · Réalité · Espace · Pouvoir sur les phalanges, Esprit au dos de
+ *  la main (le gros logement), Temps sur le pouce. Ne pas « ranger » cette liste : elle colle au
+ *  dessin. */
+export const TITAN_STONES = [
+  { id: 'pierre-de-l-ame', c: '#ff8c2b', x: 13.6, y: 32.8, d: 10.8 }, // Âme — orange (phalange 1)
+  { id: 'pierre-de-la-realite', c: '#e23a3f', x: 28.2, y: 26, d: 11.6 }, // Réalité — rouge (phalange 2)
+  { id: 'pierre-de-l-espace', c: '#4d8bff', x: 42.6, y: 24.4, d: 11.4 }, // Espace — bleu (phalange 3)
+  { id: 'pierre-du-pouvoir', c: '#a855f7', x: 57.6, y: 23.2, d: 10.8 }, // Pouvoir — violet (phalange 4)
+  { id: 'pierre-de-l-esprit', c: '#ffd93d', x: 42, y: 56, d: 17 }, // Esprit — jaune (dos de la main)
+  { id: 'pierre-du-temps', c: '#35d97a', x: 84.2, y: 40.5, d: 9 }, // Temps — vert (pouce)
+]
+
+/** `cardId` des 6 Pierres, dans l'ordre où le Gantelet les sertit. Sert à l'outil de test, qui simule
+ *  « N Pierres capturées » en sertissant les N premières (cf. `thanosStonesOverride`, App.tsx). */
+export const TITAN_STONE_IDS = TITAN_STONES.map((s) => s.id)
 
 /** Images « carte de monde » (Brawl) affichées à l'intérieur des orbes du décor `underwater`. */
 export const UNDERWATER_ORB_IMAGES = Array.from({ length: 5 }, (_, i) => `/animations/map_tabbou_${i + 1}.png`)
@@ -498,10 +665,20 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
       }
     case 'video':
       return { images: [], videos: [decor.src] }
+    // La pomme (permanente) + le masque du Miroir magique, qui ne sert qu'à la surprise
+    // « Miroir, mon beau miroir » (le miroir lui-même et ses flammes sont en CSS).
     case 'evilQueen':
-      return { images: [decor.apple], videos: [decor.src] }
+      return { images: [decor.apple, decor.mirrorMask], videos: [decor.src] }
+    // Les 11 pièces (permanentes) + les 4 diamants, qui ne servent qu'au déluge de la surprise
+    // « le coffre déborde ».
     case 'goldDust':
-      return { images: Array.from({ length: 11 }, (_, i) => `/animations/piece-${i + 1}.png`), videos: [] }
+      return {
+        images: [
+          ...Array.from({ length: 11 }, (_, i) => `/animations/piece-${i + 1}.png`),
+          ...Array.from({ length: 4 }, (_, i) => `/animations/diamant-${i + 1}.png`),
+        ],
+        videos: [],
+      }
     case 'tamatoa':
       // La pluie « bling-bling » permanente : les 11 pièces de Prince Jean + les 4 diamants + les
       // gros trésors (hameçon de Maui & Te Fiti) + les bulles qui montent par-dessus.
@@ -546,6 +723,12 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
         ],
         videos: [],
       }
+    case 'otherworld':
+      // Les 3 cages suspendues + la chaîne (répétée en plusieurs exemplaires).
+      return {
+        images: ['/animations/cage-1.png', '/animations/cage-2.png', '/animations/cage-3.png', '/animations/chaine.png'],
+        videos: [],
+      }
     case 'water':
       return { images: ['/animations/neverland.png'], videos: [] }
     case 'flyingDutchman':
@@ -579,6 +762,20 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
     case 'rift':
     case 'radiance':
       return { images: Array.from({ length: 17 }, (_, i) => `/animations/spirit-${i + 1}.png`), videos: [] }
+    // Grand Councilwoman : la silhouette de STITCH, pris dans le rayon de capture (surprise).
+    case 'federation':
+      return { images: ['/animations/stitch.png'], videos: [] }
+    // Michael Myers : la citrouille du générique (permanente) + la silhouette de « The Shape »
+    // (surprise). Le reste du décor (pavillons, lampadaire, brume, feuilles) est 100 % CSS.
+    case 'haddonfield':
+      return { images: ['/animations/citrouille_meyers.png', '/animations/silhouette_meyers.png'], videos: [] }
+    // Isabella : la MAISON de Grace Field + la FLEUR VIDA de la surprise « la Moisson » (le reste —
+    // mur, forêt, pelouse, herbes, lucioles, matricules — est 100 % CSS).
+    case 'graceField':
+      return { images: [decor.home, decor.vida], videos: [] }
+    // Thanos : le GANTELET de la jauge (le reste — ciel, tours, blocs, cendres, gemmes — est en CSS).
+    case 'titan':
+      return { images: [TITAN_GAUNTLET], videos: [] }
     // Décors 100 % CSS (aucun fichier à précharger) : film, sand, space, petals,
     // clockwork, cyber, cauldron, sunnyside, upsideDown, felGate, theWorld.
     default:

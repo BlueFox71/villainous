@@ -296,6 +296,19 @@ export function villainKeyOf(villainId: string): VillainKey {
   ) ?? 'princeJohn'
 }
 
+/**
+ * Clés des deux vilains d'une partie en cours, prêtes à être redonnées à `newGame`.
+ * ⚠️ `PlayerState.villain` porte l'ID du `VillainDef`, PAS la clé de registre (elles
+ * diffèrent pour beaucoup de natifs : `davy-jones` ↔ `davyJones`, `mechante-reine` ↔
+ * `mechanteReine`…) : sans cette conversion, `setupForKey` ne reconnaît rien et replie
+ * les DEUX joueurs sur le Prince Jean. Les ids CUSTOM (`custom-…`) sont déjà des clés.
+ */
+export function villainKeysOfState(state: GameState): [string, string] {
+  return state.players.map((p) =>
+    isCustomKey(p.villain) ? p.villain : villainKeyOf(p.villain),
+  ) as [string, string]
+}
+
 // =============================================================================
 // VILAINS PUBLIÉS (« Terminés ») — surcouche RUNTIME.
 //
@@ -652,7 +665,7 @@ function instanceOf(cardId: string, n: number): CardInstance | null {
 function buildTestState(current?: GameState): GameState {
   // On REPART des vilains de la partie en cours (s'il y en a une) pour qu'un vilain custom
   // déjà en jeu (ex. Dio) ne disparaisse pas en passant en mode test ; sinon, partie par défaut.
-  const keys = current?.players.map((p) => p.villain) as [string, string] | undefined
+  const keys = current ? villainKeysOfState(current) : undefined
   const base = newGame(keys)
   const players = base.players.map((p, i) => {
     const cur = current?.players[i]
@@ -1472,7 +1485,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set((s) => {
       // Restaure la partie d'avant telle quelle (main, plateaux, vilains conservés).
       // Repli défensif : si aucun instantané, on relance avec les vilains courants.
-      const restored = s.preTestState ?? newGame(s.state.players.map((p) => p.villain) as [string, string])
+      const restored = s.preTestState ?? newGame(villainKeysOfState(s.state))
       return { state: restored, testMode: false, preTestState: null }
     }),
   testInsertCard: (playerIndex, locationId, cardId) =>

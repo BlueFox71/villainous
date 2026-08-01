@@ -1,7 +1,7 @@
 {
   "name": "villainous",
   "private": true,
-  "version": "1.9.13",
+  "version": "1.9.34",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
