@@ -47,6 +47,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.35',
+    date: '2026-08-01',
+    title: 'Des pions au propre',
+    tags: ['interface'],
+    changes: [
+      'Dix **pions** ont été **redétourés** : plus de halo blanc ni de bord sale autour de **Ratigan**, **Jafar**, **Scar**, **Tamatoa**, **Davy Jones**, **Team Rocket**, la **Reine de Cœur**, **Shere Khan**, **Sa Sucrerie**.',
+      'Leur **taille sur le plateau** a été réajustée en conséquence : **Tamatoa** et la **Team Rocket** gardent exactement la place qu’ils occupaient avant.',
+    ],
+  },
+  {
     version: '1.9.34',
     date: '2026-08-01',
     title: 'Mode test : on garde ses vilains',

@@ -40,7 +40,10 @@ export const tamatoa: VillainDef = {
     "ces Objets : vainquez-les pour les libérer.",
   boardImage: img('board.webp'),
   pawnImage: '/pion_tamatoa.png',
-  pawnHeightPx: 92,
+  // Le pion a été redétouré au plus près (348×450 → 309×275) : le crabe occupe désormais
+  // 95 % de l'image contre 58 % avant. Hauteur ramenée de 92 à 56 pour qu'il garde à
+  // l'écran exactement la taille d'avant.
+  pawnHeightPx: 56,
   backVillainImage: img('back-villain.webp'),
   backFateImage: img('back-fate.webp'),
   // Pioche MAUI : séparée au setup (cf. createInitialGame), affichée à part.

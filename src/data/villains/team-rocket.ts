@@ -38,7 +38,9 @@ export const teamRocket: VillainDef = {
     "assez de Force d'Alliés pour vaincre le Pokémon : il rejoint vos Captures).",
   boardImage: img('board.webp'),
   pawnImage: '/pion_team-rocket.png',
-  pawnHeightPx: 120,
+  // Pion redétouré (1732×1732 → 1034×1296) : le sujet passe de 71 % à 94 % de l'image,
+  // d'où la hauteur ramenée de 120 à 90 (taille à l'écran inchangée).
+  pawnHeightPx: 90,
   backVillainImage: img('back-villain.webp'),
   backFateImage: img('back-fate.webp'),
   locations: [

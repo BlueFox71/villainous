@@ -41,7 +41,9 @@ export const ratigan: VillainDef = {
     'Palace empêche la victoire. Vous ne pouvez gagner qu’au début de votre tour.',
   boardImage: '/cards/ratigan/board.webp',
   pawnImage: '/pion_ratigan.png',
-  pawnHeightPx: 110,
+  // Pion redétouré : le sujet occupe 98 % de l'image (100 % avant) — 110 → 112 pour
+  // compenser la fine marge transparente ajoutée.
+  pawnHeightPx: 112,
   backVillainImage: '/cards/ratigan/back-villain.webp',
   backFateImage: '/cards/ratigan/back-fate.webp',
   locations: [
