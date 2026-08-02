@@ -71,6 +71,8 @@ export function PresentationTweakBar({
   onVillainChange,
   onDraftChange,
   leftSlot,
+  pawnImageData,
+  onPawnImagePick,
 }: {
   /** Vilains proposés au réglage (mêmes clés que la grille, sans « Aléatoire »). */
   keys: string[]
@@ -85,6 +87,14 @@ export function PresentationTweakBar({
    * sont rangés plutôt que d'encombrer le choix des vilains.
    */
   leftSlot?: ReactNode
+  /**
+   * Image du pion d'écran de chargement CHOISIE mais pas encore enregistrée (data URL) :
+   * elle sert l'aperçu en direct, et c'est elle qu'« Enregistrer » écrit sous `public/`.
+   * `null` = on retire le pion dédié pour revenir à celui du plateau.
+   */
+  pawnImageData?: string | null
+  /** Une image a été choisie (data URL) ou retirée (`null`) dans le sélecteur. */
+  onPawnImagePick?: (dataUrl: string | null) => void
 }) {
   const [msg, setMsg] = useState<string | null>(null)
 
@@ -98,13 +108,26 @@ export function PresentationTweakBar({
     draft.dx !== saved.dx ||
     draft.dy !== saved.dy ||
     draft.mirror !== saved.mirror ||
-    draft.pawnScale !== saved.pawnScale
+    draft.pawnScale !== saved.pawnScale ||
+    draft.pawnImage !== saved.pawnImage ||
+    pawnImageData != null
 
   const set = (patch: Partial<ArtTweakDraft>) => { setMsg(null); onDraftChange({ ...draft, ...patch }) }
 
   const save = async () => {
     setMsg('Enregistrement…')
     try {
+      // Un pion dédié vient d'être choisi : on écrit le FICHIER avant le réglage, sinon
+      // `loaderPawnImage: true` pointerait un instant vers une image absente. L'endpoint
+      // écrit le servi (`public/`) ET la copie source (`assets/`).
+      if (pawnImageData) {
+        const img = await fetch('/__save-loader-pawn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ villain, dataUrl: pawnImageData }),
+        })
+        if (!img.ok) { setMsg(`Échec (image) : ${await img.text()}`); return }
+      }
       const res = await fetch('/__save-presentation-tweak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -114,6 +137,19 @@ export function PresentationTweakBar({
     } catch {
       setMsg('Erreur réseau (serveur de dév requis).')
     }
+  }
+
+  /** Lit le fichier choisi en data URL (aperçu immédiat, écriture à l'enregistrement). */
+  const pickImage = (file: File | undefined) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      setMsg(null)
+      const url = String(reader.result)
+      onPawnImagePick?.(url)
+      onDraftChange({ ...draft, pawnImage: true })
+    }
+    reader.readAsDataURL(file)
   }
 
   return (
@@ -157,6 +193,33 @@ export function PresentationTweakBar({
           value={draft.pawnScale} min={0.3} max={3} step={0.01}
           onChange={(v) => set({ pawnScale: v })}
         />
+        {/* Image du pion PROPRE à l'écran de chargement : remplace celle du plateau, qui
+            est parfois trop petite ou trop sombre une fois agrandie. */}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-200/80">Image pion</span>
+          <label
+            title="Choisir une image de pion pour l’ÉCRAN DE CHARGEMENT (le plateau garde la sienne)"
+            className="cursor-pointer rounded-lg border border-white/20 px-2.5 py-1 text-xs text-white/80 hover:bg-white/10"
+          >
+            🖼 Parcourir…
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => { pickImage(e.target.files?.[0]); e.target.value = '' }}
+            />
+          </label>
+          {draft.pawnImage && (
+            <button
+              type="button"
+              onClick={() => { setMsg(null); onPawnImagePick?.(null); onDraftChange({ ...draft, pawnImage: false }) }}
+              title="Revenir au pion du plateau"
+              className="rounded-lg border border-white/20 px-2 py-1 text-xs text-white/60 hover:bg-white/10"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-2">

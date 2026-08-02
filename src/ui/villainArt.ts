@@ -139,6 +139,10 @@ export const PRESENTATION_TWEAK: Record<
      *  taille. Rattrape les sources hors-gabarit, qui sautent trop petites ou trop
      *  grosses une fois agrandies pour le chargement. */
     loaderPawnScale?: number
+    /** ÉCRAN DE CHARGEMENT : le vilain a un pion DÉDIÉ à cet écran (image différente de
+     *  celle du plateau). Un simple drapeau : le fichier vit à un chemin conventionnel
+     *  (`loaderPawnImagePath`), écrit par le panneau « Configuration ». */
+    loaderPawnImage?: boolean
   }
 > = {
   // `versusDyPct` : décalage vertical SPÉCIFIQUE à l'écran versus (début de partie),
@@ -219,6 +223,8 @@ export interface ArtTweakDraft {
   /** Échelle du PION sur l'écran de chargement — `loaderPawnScale`. Ne touche ni à l'art
    *  de côté, ni au pion du plateau. */
   pawnScale: number
+  /** Un pion DÉDIÉ à l'écran de chargement remplace celui du plateau — `loaderPawnImage`. */
+  pawnImage: boolean
 }
 
 /** Réglage ENREGISTRÉ d'un vilain (valeurs neutres s'il n'en a pas). */
@@ -230,12 +236,26 @@ export function savedArtTweak(villain: string): ArtTweakDraft {
     dy: t?.selectDyPct ?? 0,
     mirror: t?.selectMirror ?? false,
     pawnScale: t?.loaderPawnScale ?? 1,
+    pawnImage: t?.loaderPawnImage ?? false,
   }
 }
 
 /** Échelle du pion d'un vilain sur l'ÉCRAN DE CHARGEMENT (1 = hauteur calibrée du plateau). */
 export function loaderPawnScale(villain: string): number {
   return PRESENTATION_TWEAK[villain]?.loaderPawnScale ?? 1
+}
+
+/**
+ * Chemin PUBLIC du pion dédié à l'écran de chargement d'un vilain. Convention de nommage
+ * (`public/pions-chargement/<clé>.png`) : le drapeau `loaderPawnImage` suffit alors à dire
+ * qu'il existe, pas besoin de stocker le chemin. Écrit par le panneau « Configuration ».
+ */
+export const loaderPawnImagePath = (villain: string): string => `/pions-chargement/${villain}.png`
+
+/** Pion à afficher sur l'ÉCRAN DE CHARGEMENT : le pion dédié s'il y en a un, sinon
+ *  `undefined` (l'appelant retombe alors sur le pion du plateau). */
+export function loaderPawnImage(villain: string): string | undefined {
+  return PRESENTATION_TWEAK[villain]?.loaderPawnImage ? loaderPawnImagePath(villain) : undefined
 }
 
 /**
@@ -256,6 +276,7 @@ export function buildArtTweakEntry(villain: string, draft: ArtTweakDraft): strin
   put('selectDyPct', Math.round(draft.dy), 0)
   put('selectMirror', draft.mirror, false)
   put('loaderPawnScale', Math.round(draft.pawnScale * 100) / 100, 1)
+  put('loaderPawnImage', draft.pawnImage, false)
   const parts = Object.entries(merged).map(([k, v]) => `${k}: ${v}`)
   if (!parts.length) return ''
   // Clé nue si c'est un identifiant JS valide (vilains natifs), quotée sinon (`custom-…`).

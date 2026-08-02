@@ -54,6 +54,7 @@ export const PATCH_NOTES: PatchNote[] = [
     changes: [
       "Nouveau bouton **⏳ Écran de chargement**, rangé dans le panneau **Configuration** du choix des vilains : il montre l'**écran de préparation seul**, en boucle, avec les **pions** et les **couleurs** des vilains déjà choisis. Échap ou un clic pour refermer.",
       "Nouveau réglage **Pion (chgt)** dans le même panneau : la **taille du pion** de chaque vilain sur l'écran de chargement, **sans toucher au plateau**. Pendant le réglage, l'aperçu **épingle** le pion concerné pour qu'on le voie grandir à chaque cran.",
+      "On peut aussi lui donner une **image de pion différente** pour ce seul écran (**Image pion → Parcourir**), et revenir au pion du plateau d'un clic.",
     ],
   },
   {

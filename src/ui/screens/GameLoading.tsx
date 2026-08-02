@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useGameStore, villainKeyOf, villainEntry, type VillainKey } from '../store/gameStore'
 import { villainDecor, decorAssets } from '../villainDecor'
 import { VILLAIN_COLOR, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
+import { loaderPawnImage, loaderPawnScale } from '../villainArt'
 import { PawnLoader, type LoaderPawn } from '../components/PawnLoader'
 
 interface Props {
@@ -55,9 +56,14 @@ export function GameLoading({ onReady, onBack, preview = false, previewKeys, pre
   // ajoutés au carrousel, avec leur hauteur calibrée. Figé au montage.
   const [inPlayPawns] = useState<LoaderPawn[]>(() =>
     keys
-      .map((k) => villainEntry(k)?.def)
-      .filter((d): d is NonNullable<typeof d> => !!d?.pawnImage)
-      .map((d) => ({ src: d.pawnImage, heightPx: d.pawnHeightPx })),
+      .map((k) => ({ key: k, def: villainEntry(k)?.def }))
+      .filter((e): e is { key: VillainKey; def: NonNullable<typeof e.def> } => !!e.def?.pawnImage)
+      .map(({ key, def }) => ({
+        // Pion dédié à cet écran s'il existe, et sa correction de taille (cf. villainArt).
+        src: loaderPawnImage(key) ?? def.pawnImage,
+        heightPx: def.pawnHeightPx,
+        scale: loaderPawnScale(key),
+      })),
   )
 
   // `onReady` capturé dans une ref : l'effet de préchargement ne tourne qu'une fois et ne doit pas

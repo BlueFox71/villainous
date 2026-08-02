@@ -293,6 +293,51 @@ function savePresentationTweakPlugin(): Plugin {
 }
 
 /**
+ * Plugin DEV uniquement : endpoint POST `/__save-loader-pawn` qui écrit le pion DÉDIÉ à
+ * l'écran de chargement d'un vilain (corps : `{ villain, dataUrl }`) — servi depuis
+ * `public/pions-chargement/<vilain>.png`, avec sa copie SOURCE dans
+ * `assets/pions/chargement/<vilain>.png` (cf. conventions d'`assets/`). Crée les dossiers
+ * au besoin. Endpoint séparé de `/__save-portrait`, qui garde en plus une copie « brute »
+ * dans `portraits-raw/` — inutile ici, et qui polluerait `public/`.
+ * Absent du build de production (`apply: 'serve'`).
+ */
+function saveLoaderPawnPlugin(): Plugin {
+  const PUBLIC = resolve(process.cwd(), 'public/pions-chargement')
+  const ASSETS = resolve(process.cwd(), 'assets/pions/chargement')
+  return {
+    name: 'save-loader-pawn',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-loader-pawn', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
+        let body = ''
+        req.on('data', (c) => { body += c })
+        req.on('end', () => {
+          try {
+            const { villain, dataUrl } = JSON.parse(body) as { villain: string; dataUrl: string }
+            // Le nom de fichier vient du client : on n'accepte qu'une clé de vilain, jamais
+            // un chemin (pas de `/`, pas de `..`).
+            if (typeof villain !== 'string' || !/^[A-Za-z0-9_-]+$/.test(villain)) throw new Error('vilain invalide')
+            const m = /^data:image\/[a-z+]+;base64,(.+)$/s.exec(String(dataUrl))
+            if (!m) throw new Error('image invalide')
+            const bytes = Buffer.from(m[1], 'base64')
+            for (const dir of [PUBLIC, ASSETS]) {
+              mkdirSync(dir, { recursive: true })
+              atomicWriteFileSync(resolve(dir, `${villain}.png`), bytes)
+            }
+            res.statusCode = 200
+            res.end('ok')
+          } catch (e) {
+            res.statusCode = 400
+            res.end(String((e as Error)?.message ?? e))
+          }
+        })
+      })
+    },
+  }
+}
+
+/**
  * Plugin DEV uniquement : endpoint POST `/__save-villain-assets` qui écrit les images
  * d'un vilain personnalisé (« Terminé » dans l'Atelier) dans les dossiers SOURCES
  * `assets/` — comme les vilains natifs (corps : `{ files: [{ path, dataUrl }] }`, où
@@ -824,7 +869,7 @@ function testReportPlugin(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), saveActionPosPlugin(), saveBlockedOverlayPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), savePresentationTweakPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), readVillainJsonPlugin(), savePublishedVillainPlugin(), villainBackupPlugin(), saveVillainDifficultyPlugin(), gitStagingPlugin(), testReportPlugin()],
+  plugins: [react(), tailwindcss(), saveActionPosPlugin(), saveBlockedOverlayPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), savePresentationTweakPlugin(), saveLoaderPawnPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), readVillainJsonPlugin(), savePublishedVillainPlugin(), villainBackupPlugin(), saveVillainDifficultyPlugin(), gitStagingPlugin(), testReportPlugin()],
   build: {
     // Multi-pages : le JEU (`index.html`) ET le LAUNCHER (`launcher.html`, petite
     // fenêtre d'accueil de l'app de bureau). Deux bundles distincts → le launcher

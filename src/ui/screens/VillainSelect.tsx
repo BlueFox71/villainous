@@ -3,7 +3,7 @@ import { VILLAIN_REGISTRY, villainEntry, useGameStore, UNRELEASED_VILLAINS, type
 import { useCustomVillainStore } from '../store/customVillainStore'
 import { usePlayerStore } from '../store/playerStore'
 import { useIsDesktopApp } from '../store/settingsStore'
-import { villainPortrait, villainPresentation, PRESENTATION_TWEAK, savedArtTweak, type ArtTweakDraft } from '../villainArt'
+import { villainPortrait, villainPresentation, PRESENTATION_TWEAK, savedArtTweak, loaderPawnImage, type ArtTweakDraft } from '../villainArt'
 import { villainGuideOf } from '../villainGuide'
 import { byRelease, villainOrigin, VILLAIN_ORIGINS, ORIGIN_LABELS } from '../villainOrder'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
@@ -391,17 +391,29 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // cours de réglage remplace l'illustration de GAUCHE (aperçu), sans toucher au choix.
   const [configOpen, setConfigOpen] = useState(false)
   const [tweakVillain, setTweakVillain] = useState<string | null>(null)
-  const [tweakDraft, setTweakDraft] = useState<ArtTweakDraft>({ scale: 1, dx: 0, dy: 0, mirror: false, pawnScale: 1 })
+  const [tweakDraft, setTweakDraft] = useState<ArtTweakDraft>({
+    scale: 1, dx: 0, dy: 0, mirror: false, pawnScale: 1, pawnImage: false,
+  })
   /** Ouvre le panneau sur un vilain (le sien s'il en a un, sinon le premier de la grille). */
-  const editTweak = (key: string) => { setTweakVillain(key); setTweakDraft(savedArtTweak(key)) }
+  const editTweak = (key: string) => { setTweakVillain(key); setTweakDraft(savedArtTweak(key)); setPawnImageData(null) }
+  // Image de pion CHOISIE pour l'écran de chargement, pas encore enregistrée (data URL) :
+  // elle alimente l'aperçu, et « Enregistrer » l'écrit sous `public/`. Repart à zéro quand
+  // on change de vilain.
+  const [pawnImageData, setPawnImageData] = useState<string | null>(null)
   // Pion ÉPINGLÉ dans l'aperçu de l'écran de chargement pendant le réglage : celui du vilain
   // en cours, à l'échelle du brouillon (le curseur agit donc en direct). Hors panneau, aucun
   // pion épinglé → le carrousel habituel reprend.
   const loaderPreviewPawn = useMemo<LoaderPawn | undefined>(() => {
     if (!configOpen || !tweakVillain) return undefined
     const def = villainEntry(tweakVillain)?.def
-    return def?.pawnImage ? { src: def.pawnImage, heightPx: def.pawnHeightPx, scale: tweakDraft.pawnScale } : undefined
-  }, [configOpen, tweakVillain, tweakDraft.pawnScale])
+    if (!def) return undefined
+    // Image : celle qu'on vient de choisir (pas encore enregistrée) > le pion dédié déjà
+    // enregistré > le pion du plateau. `pawnImage` à false = retour explicite au plateau.
+    const src =
+      pawnImageData ??
+      (tweakDraft.pawnImage ? loaderPawnImage(tweakVillain) ?? def.pawnImage : def.pawnImage)
+    return src ? { src, heightPx: def.pawnHeightPx, scale: tweakDraft.pawnScale } : undefined
+  }, [configOpen, tweakVillain, tweakDraft.pawnScale, tweakDraft.pawnImage, pawnImageData])
 
   // SOLO : choix local des deux camps + camp actif (alimenté par les clics grille).
   const [mineSolo, setMineSolo] = useState<Choice | null>(null)
@@ -669,6 +681,8 @@ export function VillainSelect({ onStart, onBack }: Props) {
             draft={tweakDraft}
             onVillainChange={editTweak}
             onDraftChange={setTweakDraft}
+            pawnImageData={pawnImageData}
+            onPawnImagePick={setPawnImageData}
             leftSlot={
               /* Aperçu de l'écran de chargement seul : met en scène les vilains DÉJÀ
                  choisis (pions + teintes) s'il y en a. */

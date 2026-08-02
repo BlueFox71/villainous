@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { VILLAIN_REGISTRY } from '../store/gameStore'
 import { DEFAULT_TINT_A } from '../villainColors'
-import { loaderPawnScale } from '../villainArt'
+import { loaderPawnScale, loaderPawnImage } from '../villainArt'
 
 // Cadence du carrousel : un pion « saute » dans l'écran (HOP_MS), se pose, puis laisse place
 // à un autre (SWAP_MS > HOP_MS pour un court temps de pose avant le suivant).
@@ -26,7 +26,9 @@ export interface LoaderPawn {
  */
 const NATIVE_PAWNS: LoaderPawn[] = dedupe(
   Object.entries(VILLAIN_REGISTRY).map(([key, e]) => ({
-    src: e.def.pawnImage,
+    // Pion DÉDIÉ à cet écran s'il en existe un (l'image du plateau est parfois trop
+    // sombre / trop petite pour sauter en grand), sinon celui du plateau.
+    src: loaderPawnImage(key) ?? e.def.pawnImage,
     heightPx: e.def.pawnHeightPx,
     scale: loaderPawnScale(key),
   })),
