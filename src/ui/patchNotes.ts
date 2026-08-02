@@ -47,6 +47,15 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.40',
+    date: '2026-08-02',
+    title: 'La réplique de Cruella',
+    tags: ['son'],
+    changes: [
+      "**Cruella d'Enfer** a désormais sa **réplique** : on l'entend en la choisissant sur l'écran de sélection, et à la fermeture de l'intro.",
+    ],
+  },
+  {
     version: '1.9.39',
     date: '2026-08-02',
     title: 'Aperçu de l’écran de chargement',

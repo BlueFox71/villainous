@@ -240,6 +240,7 @@ const PHRASE_FILE: Partial<Record<VillainKey, { file: string; gain?: number; fad
   facilier: { file: 'Phrase Dr facilier' },
   syndrome: { file: 'Phrase syndrome', gain: 1.3 },
   gaston: { file: 'gaston phrase' },
+  cruella: { file: "Cruella d'enfer phrase" },
   tabbou: { file: 'Tabbou phrase' },
   bowser: { file: 'Bowser phrase' },
   teamRocket: { file: 'Team Rocket phrase' },
