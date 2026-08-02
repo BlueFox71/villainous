@@ -10,6 +10,7 @@ import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } fro
 import { Scroller } from '../components/Scroller'
 import { OptionsButton } from '../components/OptionsButton'
 import { PresentationTweakBar } from '../components/PresentationTweakBar'
+import { GameLoading } from './GameLoading'
 import { playHeroSelect, playPlayButtonHover, playBackClick, playHover, playHeroHover } from '../sfx'
 import { playVillainPhrase, stopVillainVoice } from '../villainVoices'
 
@@ -380,6 +381,9 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // Gardé par `!isDesktopApp` → absent de l'exe ET de la simulation « mode application ».
   const devBuild = !useIsDesktopApp()
   const [aiVsAi, setAiVsAi] = useState(false)
+  // DEV UNIQUEMENT : aperçu de l'ÉCRAN DE CHARGEMENT seul (pions qui sautent en boucle),
+  // pour observer/régler l'animation sans avoir à lancer une partie.
+  const [loaderPreview, setLoaderPreview] = useState(false)
 
   // DEV UNIQUEMENT : panneau « Configuration » — taille et position de l'illustration de
   // présentation, réglées en direct puis écrites dans `PRESENTATION_TWEAK`. Le vilain en
@@ -720,6 +724,19 @@ export function VillainSelect({ onStart, onBack }: Props) {
                 🤖 Entre Ordis
               </button>
             )}
+            {/* DEV : aperçu de l'écran de chargement seul (absent du build/exe). Met en scène
+                les vilains DÉJÀ choisis (pions + teintes) s'il y en a. */}
+            {devBuild && (
+              <button
+                type="button"
+                onClick={() => setLoaderPreview(true)}
+                onMouseEnter={playPlayButtonHover}
+                title="Voir l’écran de chargement seul (en boucle)"
+                className="rounded-lg border border-amber-500/40 bg-amber-900/30 px-3 py-1.5 text-xs font-bold text-amber-300/60 opacity-70 transition-colors hover:bg-amber-800/40 hover:opacity-100"
+              >
+                ⏳ Écran de chargement
+              </button>
+            )}
             <div className="w-72">
               {/* Variante « vert » quand le mode ORDI vs ORDI (dev) est actif — le libellé reste « Lancer la partie ». */}
               {(() => { const v = devBuild && aiVsAi ? 'vert' : 'classique'; return (
@@ -809,6 +826,18 @@ export function VillainSelect({ onStart, onBack }: Props) {
       </footer>
 
       <OptionsButton />
+
+      {/* DEV : l'écran de chargement seul, par-dessus tout, en boucle jusqu'à fermeture. */}
+      {loaderPreview && (
+        <div className="fixed inset-0 z-[200]">
+          <GameLoading
+            preview
+            previewKeys={[mine, opp].filter((c): c is VillainKey => !!c && c !== 'random')}
+            onReady={() => {}}
+            onBack={() => setLoaderPreview(false)}
+          />
+        </div>
+      )}
     </div>
   )
 }

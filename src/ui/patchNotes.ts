@@ -47,6 +47,15 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.39',
+    date: '2026-08-02',
+    title: 'Aperçu de l’écran de chargement',
+    tags: ['interface'],
+    changes: [
+      "Nouveau bouton **⏳ Écran de chargement** dans le choix des vilains : il montre l'**écran de préparation seul**, en boucle, avec les **pions** et les **couleurs** des vilains déjà choisis. Échap ou un clic pour refermer.",
+    ],
+  },
+  {
     version: '1.9.38',
     date: '2026-08-02',
     title: 'Rapport de tests : marquer une carte à revoir',

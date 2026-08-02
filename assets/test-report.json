@@ -1419,6 +1419,10 @@
         "souffre-douleur",
         "carte-temps",
         "minuit"
+      ],
+      "rejectedCards": [
+        "custom-seigneur-cles-c1",
+        "miserable-cloporte"
       ]
     },
     "thanos": {
