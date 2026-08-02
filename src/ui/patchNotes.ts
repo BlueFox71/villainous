@@ -47,6 +47,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.41',
+    date: '2026-08-02',
+    title: 'Vingt-trois pions refaits',
+    tags: ['interface'],
+    changes: [
+      "Les pions de **23 vilains** sont remplacés par des versions bien plus nettes, sur le **plateau** comme à l'écran de chargement : **Prince Jean**, **Maléfique**, **Jafar**, **Reine de Cœur**, **Capitaine Crochet**, **Ursula**, **Hadès**, **Dr Facilier**, **La Méchante Reine**, **Scar**, **Yzma**, **Ratigan**, **Mère Gothel**, **Gaston**, **Le Seigneur des Ténèbres**, **Madame Mim**, **Syndrome**, **Lotso**, **Oogie Boogie**, **Sa Sucrerie**, **Shere Khan**, **Davy Jones** et **Tamatoa**.",
+      "Leur **taille à l'écran de chargement** est réglée un par un, pour que chacun saute à la bonne échelle.",
+    ],
+  },
+  {
     version: '1.9.40',
     date: '2026-08-02',
     title: 'La réplique de Cruella',
