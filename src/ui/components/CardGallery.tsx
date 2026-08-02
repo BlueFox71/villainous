@@ -14,22 +14,26 @@ const TYPE_LABEL: Record<string, string> = {
   ingredient: 'Ingrédient',
 }
 
+/** Bordure d'une vignette selon sa revue : validée (verte) ou NON validée (rouge). */
+const REVIEW_RING = { ok: 'ring-4 ring-emerald-400', ko: 'ring-4 ring-red-500' } as const
+const REVIEW_HINT = { ok: 'validée', ko: 'NON validée' } as const
+
 /**
  * Une carte du paquet, avec une pastille « ×N exemplaires ».
  *
  * - `zoom` (défaut `true`) : agrandissement au survol (léger scale + grand visuel centré
  *   à l'écran). Passer `false` pour désactiver tout effet de survol.
- * - `onToggle` : rend la carte SÉLECTIONNABLE — un clic (dé)sélectionne, la carte reçoit
- *   alors une bordure verte.
+ * - `onToggle` : rend la carte CLIQUABLE — chaque clic fait défiler sa revue (neutre →
+ *   verte → rouge → neutre), l'état courant étant donné par `review`.
  */
 export function CardThumb({
   card,
-  selected,
+  review,
   onToggle,
   zoom = true,
 }: {
   card: CardDef
-  selected?: boolean
+  review?: 'ok' | 'ko'
   onToggle?: () => void
   zoom?: boolean
 }) {
@@ -40,7 +44,7 @@ export function CardThumb({
     <div className="flex flex-col gap-1">
       <figure
         className={`relative m-0 rounded-lg ${zoom ? 'transition-transform duration-150 ease-out hover:scale-[1.04]' : ''} ${cursor} ${
-          selected ? 'ring-4 ring-emerald-400' : ''
+          review ? REVIEW_RING[review] : ''
         }`}
         onMouseEnter={zoom ? () => { playCardHover(); setHover(true) } : undefined}
         onMouseLeave={zoom ? () => setHover(false) : undefined}
@@ -49,7 +53,7 @@ export function CardThumb({
         <LoadingImage
           src={card.image}
           alt={card.name}
-          title={`${card.name} — ${TYPE_LABEL[card.type] ?? card.type}`}
+          title={`${card.name} — ${TYPE_LABEL[card.type] ?? card.type}${review ? ` (${REVIEW_HINT[review]})` : ''}`}
           wrapperClassName="aspect-[1440/2044] w-full rounded-lg border border-white/15"
           className="h-full w-full object-cover"
           spinnerSize="sm"
@@ -75,21 +79,23 @@ export function CardThumb({
 
 /**
  * Grille d'un paquet (Vilain ou Fatalité) : une vignette par carte unique. Rien n'est
- * rendu si `cards` est vide. Passer `selectedIds` + `onToggle` rend les vignettes
- * sélectionnables (bordure verte au clic).
+ * rendu si `cards` est vide. Passer `onToggle` rend les vignettes cliquables ;
+ * `validatedIds` / `rejectedIds` donnent la bordure (verte / rouge) de chacune.
  */
 export function DeckGallery({
   title,
   cards,
   count,
-  selectedIds,
+  validatedIds,
+  rejectedIds,
   onToggle,
   zoom = true,
 }: {
   title: string
   cards: CardDef[]
   count: number
-  selectedIds?: Set<string>
+  validatedIds?: Set<string>
+  rejectedIds?: Set<string>
   onToggle?: (id: string) => void
   zoom?: boolean
 }) {
@@ -105,7 +111,7 @@ export function DeckGallery({
             key={c.id}
             card={c}
             zoom={zoom}
-            selected={selectedIds?.has(c.id)}
+            review={validatedIds?.has(c.id) ? 'ok' : rejectedIds?.has(c.id) ? 'ko' : undefined}
             onToggle={onToggle ? () => onToggle(c.id) : undefined}
           />
         ))}

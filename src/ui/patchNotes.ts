@@ -47,6 +47,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.38',
+    date: '2026-08-02',
+    title: 'Rapport de tests : marquer une carte à revoir',
+    tags: ['interface'],
+    changes: [
+      "Dans le panneau **Cartes** du rapport de tests, un clic fait maintenant défiler **trois** états : rien → **validée** (bordure verte) → **non validée** (bordure rouge) → rien.",
+      "Le compte des cartes **à revoir** s'affiche à côté des validées, et sous la jauge du vilain sur la page du rapport.",
+    ],
+  },
+  {
     version: '1.9.37',
     date: '2026-08-02',
     title: 'Michael Myers se remet à chasser',

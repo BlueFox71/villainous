@@ -2,10 +2,12 @@
 // Panneau « Rapport de tests — Cartes » (outil de dév). Ouvert en jeu (bouton-icône
 // haut-gauche) ou depuis la page Rapport (clic sur la jauge de cartes d'un vilain).
 // Pour un vilain (choisi via un select), montre ses cartes MÉCHANT et FATALITÉ en
-// images ; un clic VALIDE la carte (bordure verte).
+// images ; chaque clic fait défiler la revue de la carte : neutre → VALIDÉE (bordure
+// verte) → NON VALIDÉE (bordure rouge, à revoir) → neutre.
 //
-// La validation est PERSISTÉE dans le rapport (assets/test-report.json) — champ
-// `validatedCards` par vilain, COMMUN aux deux côtés — avec sauvegarde automatique.
+// La revue est PERSISTÉE dans le rapport (assets/test-report.json) — champs
+// `validatedCards` / `rejectedCards` par vilain, COMMUNS aux deux côtés — avec
+// sauvegarde automatique.
 // =============================================================================
 
 import { useMemo, useState } from 'react'
@@ -24,12 +26,13 @@ export interface ReviewVillain {
 
 export function GameCardReviewModal({ villains, onClose }: { villains: ReviewVillain[]; onClose: () => void }) {
   const [villainKey, setVillainKey] = useState<string>(villains[0]?.key ?? '')
-  const { report, toggleCard, saveState } = useTestReport()
-  // Cartes VALIDÉES (bordure verte) du vilain courant — communes (pas par testeur).
-  const validated = useMemo(
-    () => new Set(report ? entryOf(report, villainKey).validatedCards : []),
-    [report, villainKey],
-  )
+  const { report, cycleCard, saveState } = useTestReport()
+  // Revue des cartes du vilain courant — commune (pas par testeur) : validées (bordure
+  // verte) et explicitement NON validées (bordure rouge, à revoir).
+  const { validated, rejected } = useMemo(() => {
+    const e = report ? entryOf(report, villainKey) : null
+    return { validated: new Set(e?.validatedCards ?? []), rejected: new Set(e?.rejectedCards ?? []) }
+  }, [report, villainKey])
 
   const { villainCards, fateCards, groupDecks } = useMemo(() => {
     // Custom : cartes BRUTES (conservent `group`, retiré par toCardDefs) pour isoler les
@@ -68,6 +71,9 @@ export function GameCardReviewModal({ villains, onClose }: { villains: ReviewVil
           {validated.size > 0 && (
             <span className="text-sm font-semibold text-emerald-300">{validated.size} {plural(validated.size, 'validée')}</span>
           )}
+          {rejected.size > 0 && (
+            <span className="text-sm font-semibold text-red-300">{rejected.size} à revoir</span>
+          )}
           <span
             className={`text-sm ${saveState === 'error' ? 'text-red-300' : saveState === 'saved' ? 'text-emerald-300' : 'text-white/50'}`}
           >
@@ -91,16 +97,18 @@ export function GameCardReviewModal({ villains, onClose }: { villains: ReviewVil
                 title="Deck Vilain"
                 cards={villainCards}
                 count={sumCopies(villainCards)}
-                selectedIds={validated}
-                onToggle={(id) => toggleCard(villainKey, id)}
+                validatedIds={validated}
+                rejectedIds={rejected}
+                onToggle={(id) => cycleCard(villainKey, id)}
                 zoom={false}
               />
               <DeckGallery
                 title="Deck Fatalité"
                 cards={fateCards}
                 count={sumCopies(fateCards)}
-                selectedIds={validated}
-                onToggle={(id) => toggleCard(villainKey, id)}
+                validatedIds={validated}
+                rejectedIds={rejected}
+                onToggle={(id) => cycleCard(villainKey, id)}
                 zoom={false}
               />
               {groupDecks.map((g) => (
@@ -109,8 +117,9 @@ export function GameCardReviewModal({ villains, onClose }: { villains: ReviewVil
                   title={`Paquet « ${g.name} »`}
                   cards={g.cards}
                   count={sumCopies(g.cards)}
-                  selectedIds={validated}
-                  onToggle={(id) => toggleCard(villainKey, id)}
+                  validatedIds={validated}
+                  rejectedIds={rejected}
+                  onToggle={(id) => cycleCard(villainKey, id)}
                   zoom={false}
                 />
               ))}

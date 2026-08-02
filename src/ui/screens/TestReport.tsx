@@ -296,6 +296,7 @@ export function TestReport({ onBack }: Props) {
               // Pourcentage de cartes validées (jauge, commune aux deux côtés).
               const total = cardTotalOf(v.id)
               const validated = e.validatedCards.length
+              const rejected = e.rejectedCards.length
               const pct = total === 0 ? 0 : Math.round((Math.min(validated, total) / total) * 100)
               return (
                 <li
@@ -320,11 +321,15 @@ export function TestReport({ onBack }: Props) {
                     <button
                       type="button"
                       onClick={() => setReviewVillain({ key: v.id, name: v.name })}
-                      title={`Cartes validées : ${Math.min(validated, total)}/${total} — cliquer pour éditer`}
+                      title={`Cartes validées : ${Math.min(validated, total)}/${total}${
+                        rejected > 0 ? ` — ${rejected} à revoir` : ''
+                      } — cliquer pour éditer`}
                       className="flex flex-col items-center gap-1 rounded-xl border border-white/15 bg-black/25 p-2 transition hover:border-emerald-300/70 hover:bg-black/40"
                     >
                       <CircularProgress value={pct} />
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-white/60">Cartes</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-white/60">
+                        Cartes{rejected > 0 && <span className="text-red-300"> · {rejected} ✗</span>}
+                      </span>
                     </button>
                   </div>
                   <TesterPanel

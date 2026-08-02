@@ -42,9 +42,19 @@ export interface SideEntry {
 }
 // Une entrée testeur = ses deux côtés (joueur/bot).
 export type TesterEntry = Record<Side, SideEntry>
-// Une entrée vilain = les deux testeurs + la liste des cartes VALIDÉES (ids cochés dans le
-// panneau « Rapport de tests — Cartes »). La validation est COMMUNE (pas par testeur).
-export type VillainEntry = Record<Tester, TesterEntry> & { validatedCards: string[] }
+
+/** Revue d'une carte dans le panneau « Rapport de tests — Cartes », d'après la bordure
+ *  de sa vignette : `none` = pas encore revue, `ok` = validée (verte), `ko` = NON validée
+ *  (rouge, à revoir). Un clic fait défiler ces trois états. */
+export type CardReview = 'none' | 'ok' | 'ko'
+
+// Une entrée vilain = les deux testeurs + la revue des cartes du panneau « Rapport de
+// tests — Cartes », COMMUNE aux deux testeurs. Deux listes d'ids : les cartes validées et
+// celles explicitement NON validées (`rejectedCards`, absent des anciens rapports).
+export type VillainEntry = Record<Tester, TesterEntry> & {
+  validatedCards: string[]
+  rejectedCards: string[]
+}
 export interface Report {
   version: number
   villains: Record<string, VillainEntry>
@@ -67,8 +77,24 @@ export function entryOf(report: Report, id: string): VillainEntry {
     joueur: { ...emptySide(), ...t?.joueur },
     bot: { ...emptySide(), ...t?.bot },
   })
-  return { jules: tester(v?.jules), alexis: tester(v?.alexis), validatedCards: v?.validatedCards ?? [] }
+  return {
+    jules: tester(v?.jules),
+    alexis: tester(v?.alexis),
+    validatedCards: v?.validatedCards ?? [],
+    rejectedCards: v?.rejectedCards ?? [],
+  }
 }
+
+/** Revue d'une carte (état de la bordure de sa vignette). */
+export function cardReviewOf(entry: VillainEntry, cardId: string): CardReview {
+  if (entry.validatedCards.includes(cardId)) return 'ok'
+  if (entry.rejectedCards.includes(cardId)) return 'ko'
+  return 'none'
+}
+
+/** Revue SUIVANTE au clic : pas encore revue → validée → NON validée → pas encore revue. */
+export const nextCardReview = (cur: CardReview): CardReview =>
+  cur === 'none' ? 'ok' : cur === 'ok' ? 'ko' : 'none'
 
 /** Rang d'un niveau (0 = pire … 4 = meilleur), d'après l'ordre de `RATINGS`. */
 export const ratingRank = (key: RatingKey): number => RATINGS.findIndex((r) => r.key === key)
@@ -155,21 +181,32 @@ function patch(villainId: string, tester: Tester, side: Side, sidePatch: Partial
   emit()
 }
 
-/** (Dé)valide une carte d'un vilain (panneau « Cartes ») — COMMUN aux deux côtés — puis sauvegarde. */
-function toggleCard(villainId: string, cardId: string) {
+/**
+ * Fait défiler la revue d'une carte (panneau « Cartes ») — COMMUNE aux deux côtés — puis
+ * sauvegarde. Cycle : pas encore revue → **validée** (verte) → **NON validée** (rouge, à
+ * revoir) → pas encore revue. Une carte n'est jamais dans les deux listes à la fois.
+ */
+function cycleCard(villainId: string, cardId: string) {
   if (!report) return
   const cur = entryOf(report, villainId)
-  const set = new Set(cur.validatedCards)
-  if (set.has(cardId)) set.delete(cardId)
-  else set.add(cardId)
-  report = { ...report, villains: { ...report.villains, [villainId]: { ...cur, validatedCards: [...set] } } }
+  const next = nextCardReview(cardReviewOf(cur, cardId))
+  const ok = new Set(cur.validatedCards)
+  const ko = new Set(cur.rejectedCards)
+  ok.delete(cardId)
+  ko.delete(cardId)
+  if (next === 'ok') ok.add(cardId)
+  else if (next === 'ko') ko.add(cardId)
+  report = {
+    ...report,
+    villains: { ...report.villains, [villainId]: { ...cur, validatedCards: [...ok], rejectedCards: [...ko] } },
+  }
   scheduleSave()
   emit()
 }
 
 /**
  * Accès au rapport PARTAGÉ. Toutes les instances se re-rendent ensemble à chaque
- * modification (patch/toggleCard) ou changement d'état de sauvegarde. `report` est
+ * modification (patch/cycleCard) ou changement d'état de sauvegarde. `report` est
  * `null` tant que le chargement initial n'est pas terminé.
  */
 export function useTestReport() {
@@ -178,5 +215,5 @@ export function useTestReport() {
     () => version,
   )
   useEffect(() => { ensureLoaded() }, [])
-  return { report, patch, toggleCard, saveState }
+  return { report, patch, cycleCard, saveState }
 }
