@@ -50,12 +50,13 @@ export const PATCH_NOTES: PatchNote[] = [
     version: '1.9.37',
     date: '2026-08-02',
     title: 'Michael Myers se remet à chasser',
-    tags: ['ia', 'equilibrage'],
+    tags: ['ia', 'regles', 'equilibrage'],
     changes: [
       "Le bot **Michael Myers** traînait des parties entières sans tuer personne. Il **s'arme** maintenant dès le premier tour : la ligne de jeu « **Arme du crime** » était invisible pour lui, il ne s'équipait donc jamais.",
       "Les Héros de son royaume sont enfin traités pour ce qu'ils sont — du **carburant** : il fait venir des victimes (**Jouez avec la nourriture**), va **les rejoindre** avec son pion et les **assassine** pour monter en **Mal Intérieur**.",
       "Il ne jette plus ses cartes décisives : **ASSASSINER**, **Gardons le meilleur pour la fin** et ses **Armes** sont protégées de la défausse.",
-      "Résultat sur 24 parties tests contre le **Prince Jean** : **25 % → 67 %** de victoires, et des parties plus courtes.",
+      "**LAURIE STRODE ne peut plus quitter la Demeure des Strode.** On pouvait l'en faire sortir (**Trace de sang**) et l'assassiner sans jamais déverrouiller le lieu : le palier **Mal Intérieur 3** est de nouveau obligatoire.",
+      "Résultat sur 24 parties tests contre le **Prince Jean** : **25 % → 42 %** de victoires, et la Demeure est vraiment déverrouillée dans la majorité des parties.",
     ],
   },
   {

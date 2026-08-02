@@ -655,7 +655,8 @@
       "group": null,
       "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-laurie-strode.art.webp?v=1784296782144",
       "assassinateSurchargePerOtherHero": 2,
-      "forcedFateLocation": "loc-4"
+      "forcedFateLocation": "loc-4",
+      "cannotBeMoved": true
     },
     {
       "id": "custom-michael-meyers-desarmement",
@@ -894,7 +895,7 @@
     }
   ],
   "createdAt": "2026-07-17T00:05:05.656Z",
-  "updatedAt": "2026-07-26T15:40:00.000Z",
+  "updatedAt": "2026-08-02T12:00:00.000Z",
   "boardArt": "/cards/custom-michael-meyers/board-art.webp?v=1784296782144",
   "portraitPos": {
     "x": 87,
