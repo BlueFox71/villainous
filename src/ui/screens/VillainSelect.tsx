@@ -11,6 +11,7 @@ import { Scroller } from '../components/Scroller'
 import { OptionsButton } from '../components/OptionsButton'
 import { PresentationTweakBar } from '../components/PresentationTweakBar'
 import { GameLoading } from './GameLoading'
+import type { LoaderPawn } from '../components/PawnLoader'
 import { playHeroSelect, playPlayButtonHover, playBackClick, playHover, playHeroHover } from '../sfx'
 import { playVillainPhrase, stopVillainVoice } from '../villainVoices'
 
@@ -390,9 +391,17 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // cours de réglage remplace l'illustration de GAUCHE (aperçu), sans toucher au choix.
   const [configOpen, setConfigOpen] = useState(false)
   const [tweakVillain, setTweakVillain] = useState<string | null>(null)
-  const [tweakDraft, setTweakDraft] = useState<ArtTweakDraft>({ scale: 1, dx: 0, dy: 0, mirror: false })
+  const [tweakDraft, setTweakDraft] = useState<ArtTweakDraft>({ scale: 1, dx: 0, dy: 0, mirror: false, pawnScale: 1 })
   /** Ouvre le panneau sur un vilain (le sien s'il en a un, sinon le premier de la grille). */
   const editTweak = (key: string) => { setTweakVillain(key); setTweakDraft(savedArtTweak(key)) }
+  // Pion ÉPINGLÉ dans l'aperçu de l'écran de chargement pendant le réglage : celui du vilain
+  // en cours, à l'échelle du brouillon (le curseur agit donc en direct). Hors panneau, aucun
+  // pion épinglé → le carrousel habituel reprend.
+  const loaderPreviewPawn = useMemo<LoaderPawn | undefined>(() => {
+    if (!configOpen || !tweakVillain) return undefined
+    const def = villainEntry(tweakVillain)?.def
+    return def?.pawnImage ? { src: def.pawnImage, heightPx: def.pawnHeightPx, scale: tweakDraft.pawnScale } : undefined
+  }, [configOpen, tweakVillain, tweakDraft.pawnScale])
 
   // SOLO : choix local des deux camps + camp actif (alimenté par les clics grille).
   const [mineSolo, setMineSolo] = useState<Choice | null>(null)
@@ -609,7 +618,14 @@ export function VillainSelect({ onStart, onBack }: Props) {
       className="villain-bg relative flex h-screen flex-col overflow-hidden bg-[#0a0814] text-white"
       style={{ backgroundImage: pageBackground }}
     >
-      <header className="flex flex-col gap-2 border-b border-white/10 px-4 py-3">
+      {/* En RÉGLAGE (panneau ouvert + aperçu affiché), l'en-tête passe AU-DESSUS de l'aperçu :
+          sinon les curseurs seraient recouverts et on règlerait à l'aveugle. L'aperçu seul,
+          lui, garde tout l'écran. */}
+      <header
+        className={`flex flex-col gap-2 border-b border-white/10 px-4 py-3 ${
+          loaderPreview && configOpen ? 'relative z-[210] bg-[#0a0814]' : ''
+        }`}
+      >
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-lg font-bold text-purple-200">
             {network ? 'Choix des vilains (en réseau)' : 'Choix des vilains'}
@@ -833,6 +849,9 @@ export function VillainSelect({ onStart, onBack }: Props) {
           <GameLoading
             preview
             previewKeys={[mine, opp].filter((c): c is VillainKey => !!c && c !== 'random')}
+            /* Panneau « Configuration » ouvert : on ÉPINGLE le pion du vilain en cours de
+               réglage, à la taille du BROUILLON — le curseur se voit à chaque cran. */
+            previewPawn={loaderPreviewPawn}
             onReady={() => {}}
             onBack={() => setLoaderPreview(false)}
           />

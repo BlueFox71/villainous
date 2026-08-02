@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { VILLAIN_REGISTRY } from '../store/gameStore'
 import { DEFAULT_TINT_A } from '../villainColors'
+import { loaderPawnScale } from '../villainArt'
 
 // Cadence du carrousel : un pion « saute » dans l'écran (HOP_MS), se pose, puis laisse place
 // à un autre (SWAP_MS > HOP_MS pour un court temps de pose avant le suivant).
@@ -12,6 +13,9 @@ export interface LoaderPawn {
   src: string
   /** `VillainDef.pawnHeightPx` — les pions ont des proportions très différentes. */
   heightPx: number
+  /** Correction de taille PROPRE à cet écran (`loaderPawnScale`, 1 = hauteur du plateau) :
+   *  certaines sources sautent trop petites ou trop grosses une fois agrandies ici. */
+  scale?: number
 }
 
 /**
@@ -21,9 +25,10 @@ export interface LoaderPawn {
  * (45×106 pour Maléfique, 1024×1024 pour Bowser) et seul `pawnHeightPx` donne l'échelle juste.
  */
 const NATIVE_PAWNS: LoaderPawn[] = dedupe(
-  Object.values(VILLAIN_REGISTRY).map((e) => ({
+  Object.entries(VILLAIN_REGISTRY).map(([key, e]) => ({
     src: e.def.pawnImage,
     heightPx: e.def.pawnHeightPx,
+    scale: loaderPawnScale(key),
   })),
 )
 
@@ -62,6 +67,12 @@ interface Props {
   tint?: string
   /** Pions à ajouter au réservoir natif (ex. les vilains custom en jeu). */
   extraPawns?: LoaderPawn[]
+  /**
+   * REMPLACE le réservoir (au lieu de le compléter) : le carrousel ne montre plus que
+   * ces pions-là. Sert au réglage de taille, où l'on veut garder SOUS LES YEUX le pion
+   * qu'on ajuste plutôt que d'attendre qu'il repasse.
+   */
+  pawns?: LoaderPawn[]
   className?: string
 }
 
@@ -70,15 +81,24 @@ interface Props {
  * piédestal lumineux l'un après l'autre. Réutilisable partout où un contenu se charge (écran
  * de préparation de partie, liste des vilains de l'Atelier, rapports de dév…).
  */
-export function PawnLoader({ label, size = 'md', tint = DEFAULT_TINT_A, extraPawns, className }: Props) {
-  const [pool] = useState<LoaderPawn[]>(() =>
-    extraPawns?.length ? dedupe([...NATIVE_PAWNS, ...extraPawns]) : NATIVE_PAWNS,
+export function PawnLoader({ label, size = 'md', tint = DEFAULT_TINT_A, extraPawns, pawns, className }: Props) {
+  // `pawns` remplace le réservoir ; sinon on complète le natif avec `extraPawns`. Recalculé
+  // quand `pawns` change (réglage en direct : l'échelle du pion épinglé bouge à chaque cran).
+  const pool = useMemo<LoaderPawn[]>(
+    () => (pawns?.length ? pawns : extraPawns?.length ? dedupe([...NATIVE_PAWNS, ...extraPawns]) : NATIVE_PAWNS),
+    [pawns, extraPawns],
   )
-  // Ordre courant + position, tenus ensemble pour rester synchrones lors du re-mélange de fin de tour.
-  const [pos, setPos] = useState<{ order: LoaderPawn[]; idx: number }>(() => ({
+  // Ordre courant + position, tenus ensemble pour rester synchrones lors du re-mélange de fin
+  // de tour. On mémorise aussi le réservoir dont ils viennent, pour repartir s'il change.
+  const [pos, setPos] = useState<{ pool: LoaderPawn[]; order: LoaderPawn[]; idx: number }>(() => ({
+    pool,
     order: shuffled(pool),
     idx: 0,
   }))
+  // Réservoir changé (réglage de taille en direct : le pion épinglé est recréé à chaque cran)
+  // → on repart de lui PENDANT le rendu, sans passer par un effet : le curseur se voit tout de
+  // suite, là où un effet laisserait un rendu intermédiaire avec l'ancienne taille.
+  if (pos.pool !== pool) setPos({ pool, order: shuffled(pool), idx: 0 })
   const [hopKey, setHopKey] = useState(0) // remonte l'<img> → rejoue l'animation d'entrée
   // Largeur RENDUE du pion courant, mesurée au chargement de l'image : le halo au sol s'y ajuste
   // (un socle fin comme Maléfique et un socle large comme Ratigan n'ont pas la même emprise).
@@ -87,16 +107,16 @@ export function PawnLoader({ label, size = 'md', tint = DEFAULT_TINT_A, extraPaw
   useEffect(() => {
     if (pool.length <= 1) return
     const id = setInterval(() => {
-      setPos(({ order, idx }) => {
+      setPos(({ pool: from, order, idx }) => {
         const next = idx + 1
-        if (next < order.length) return { order, idx: next }
+        if (next < order.length) return { pool: from, order, idx: next }
         // Fin de tour : on re-mélange, en évitant de reprendre le même pion qu'à l'instant.
         const last = order[idx]
         const reshuffled = shuffled(pool)
         if (reshuffled[0].src === last.src && reshuffled.length > 1) {
           ;[reshuffled[0], reshuffled[1]] = [reshuffled[1], reshuffled[0]]
         }
-        return { order: reshuffled, idx: 0 }
+        return { pool: from, order: reshuffled, idx: 0 }
       })
       setHopKey((k) => k + 1)
     }, SWAP_MS)
@@ -105,7 +125,8 @@ export function PawnLoader({ label, size = 'md', tint = DEFAULT_TINT_A, extraPaw
 
   const s = SIZES[size]
   const pawn = pos.order[pos.idx]
-  const h = Math.round(pawn.heightPx * s.scale)
+  // Hauteur = calibrage plateau × gabarit de l'écran × correction propre au vilain.
+  const h = Math.round(pawn.heightPx * s.scale * (pawn.scale ?? 1))
   const haloW = Math.round(Math.max(28, pawnW * 1.15))
 
   return (

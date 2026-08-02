@@ -20,6 +20,11 @@ interface Props {
    * prend ceux de la partie en cours — qui n'est pas encore initialisée à l'écran de choix.
    */
   previewKeys?: VillainKey[]
+  /**
+   * APERÇU : ÉPINGLE un pion (le carrousel ne montre que lui). Sert au réglage de taille —
+   * on garde sous les yeux le pion qu'on ajuste au lieu d'attendre qu'il repasse.
+   */
+  previewPawn?: LoaderPawn
 }
 
 /** Cadence de la barre de progression en APERÇU (aller-retour 0 → 100 %). */
@@ -38,7 +43,7 @@ const PER_VIDEO_MS = 4500
  * des deux vilains (images + première frame des vidéos) pour absorber le pic de saccade qui,
  * sinon, survient au montage du jeu. Best-effort : on continue même si un asset échoue ou traîne.
  */
-export function GameLoading({ onReady, onBack, preview = false, previewKeys }: Props) {
+export function GameLoading({ onReady, onBack, preview = false, previewKeys, previewPawn }: Props) {
   // Vilains figés au montage (le state est déjà initialisé par `reset` / la synchro réseau ;
   // en aperçu, la partie n'existe pas encore → on prend ceux passés par l'appelant).
   const [keys] = useState<VillainKey[]>(
@@ -164,8 +169,13 @@ export function GameLoading({ onReady, onBack, preview = false, previewKeys }: P
         className="w-[40rem] max-w-[88vw] drop-shadow-[0_6px_24px_rgba(0,0,0,0.95)]"
       />
 
-      {/* Pions qui sautent en boucle pendant le préchargement. */}
-      <PawnLoader size="lg" tint={colorOf(keys[0])} extraPawns={inPlayPawns} />
+      {/* Pions qui sautent en boucle pendant le préchargement (un seul, épinglé, en réglage). */}
+      <PawnLoader
+        size="lg"
+        tint={colorOf(keys[0])}
+        extraPawns={inPlayPawns}
+        pawns={previewPawn ? [previewPawn] : undefined}
+      />
 
       <div className="flex w-72 flex-col items-center gap-3">
         <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-200/80">

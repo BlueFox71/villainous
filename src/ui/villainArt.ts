@@ -134,6 +134,11 @@ export const PRESENTATION_TWEAK: Record<
      *  quel et celui de droite est retourné (ils se font face) ; une illustration déjà
      *  tournée vers la gauche a besoin de l'inverse. */
     selectMirror?: boolean
+    /** ÉCRAN DE CHARGEMENT : échelle du PION dans le carrousel (1 = hauteur calibrée du
+     *  plateau, `pawnHeightPx`). N'affecte QUE cet écran — le pion du plateau garde sa
+     *  taille. Rattrape les sources hors-gabarit, qui sautent trop petites ou trop
+     *  grosses une fois agrandies pour le chargement. */
+    loaderPawnScale?: number
   }
 > = {
   // `versusDyPct` : décalage vertical SPÉCIFIQUE à l'écran versus (début de partie),
@@ -211,6 +216,9 @@ export interface ArtTweakDraft {
   dy: number
   /** Retourne l'illustration (inverse le miroir par défaut) — `selectMirror`. */
   mirror: boolean
+  /** Échelle du PION sur l'écran de chargement — `loaderPawnScale`. Ne touche ni à l'art
+   *  de côté, ni au pion du plateau. */
+  pawnScale: number
 }
 
 /** Réglage ENREGISTRÉ d'un vilain (valeurs neutres s'il n'en a pas). */
@@ -221,7 +229,13 @@ export function savedArtTweak(villain: string): ArtTweakDraft {
     dx: t?.selectDxPct ?? 0,
     dy: t?.selectDyPct ?? 0,
     mirror: t?.selectMirror ?? false,
+    pawnScale: t?.loaderPawnScale ?? 1,
   }
+}
+
+/** Échelle du pion d'un vilain sur l'ÉCRAN DE CHARGEMENT (1 = hauteur calibrée du plateau). */
+export function loaderPawnScale(villain: string): number {
+  return PRESENTATION_TWEAK[villain]?.loaderPawnScale ?? 1
 }
 
 /**
@@ -241,6 +255,7 @@ export function buildArtTweakEntry(villain: string, draft: ArtTweakDraft): strin
   put('selectDxPct', Math.round(draft.dx), 0)
   put('selectDyPct', Math.round(draft.dy), 0)
   put('selectMirror', draft.mirror, false)
+  put('loaderPawnScale', Math.round(draft.pawnScale * 100) / 100, 1)
   const parts = Object.entries(merged).map(([k, v]) => `${k}: ${v}`)
   if (!parts.length) return ''
   // Clé nue si c'est un identifiant JS valide (vilains natifs), quotée sinon (`custom-…`).

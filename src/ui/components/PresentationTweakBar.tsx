@@ -97,7 +97,8 @@ export function PresentationTweakBar({
     draft.scale !== saved.scale ||
     draft.dx !== saved.dx ||
     draft.dy !== saved.dy ||
-    draft.mirror !== saved.mirror
+    draft.mirror !== saved.mirror ||
+    draft.pawnScale !== saved.pawnScale
 
   const set = (patch: Partial<ArtTweakDraft>) => { setMsg(null); onDraftChange({ ...draft, ...patch }) }
 
@@ -147,6 +148,14 @@ export function PresentationTweakBar({
           label="Vertical" hint="Décalage vertical (négatif = vers le haut)"
           value={draft.dy} min={-60} max={60} step={1} suffix="%"
           onChange={(v) => set({ dy: v })}
+        />
+        {/* Taille du PION sur l'écran de chargement — sans rapport avec l'illustration
+            ci-dessus, mais réglé ici pour tenir dans le même tiroir « Configuration ».
+            L'aperçu (⏳) épingle le pion du vilain choisi pour qu'on le voie changer. */}
+        <Slider
+          label="Pion (chgt)" hint="Taille du pion sur l'ÉCRAN DE CHARGEMENT (1 = taille du plateau). N'affecte pas le plateau."
+          value={draft.pawnScale} min={0.3} max={3} step={0.01}
+          onChange={(v) => set({ pawnScale: v })}
         />
       </div>
 
