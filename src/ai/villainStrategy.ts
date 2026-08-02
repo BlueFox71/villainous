@@ -1021,6 +1021,36 @@ export const VILLAIN_STRATEGY: Record<string, VillainStrategy> = {
       strengthenTargets: [{ itemCardId: 'balle-smash', preferHeroCardIds: ['samus', 'link'] }],
     },
   },
+
+  // --- Michael Myers (objectif : assassiner LAURIE STRODE) -------------------
+  // Vilain CHASSEUR : chaque Héros éliminé fait monter son Mal Intérieur (1→3), le
+  // palier 3 déverrouille la Demeure des Strode. Les Héros de son royaume sont donc
+  // du carburant (cf. `heroesAreFuel`) — d'où un `priorityVanquish` qui ne sert qu'à
+  // choisir DANS QUEL ORDRE les abattre.
+  'custom-michael-meyers': {
+    priorityVanquish: {
+      // JAIME STRODE désactive l'effet de l'Arme équipée : tant qu'elle est là, chaque
+      // assassinat perd sa prime (rejouer, action gratuite, Pouvoir, pioche) → première
+      // victime. TOMMY DOLE, lui, ramène un Héros de la défausse à sa mort : victime
+      // idéale suivante (il se rembourse en carburant).
+      'custom-michael-meyers-jaime-strode': 6,
+      'custom-michael-meyers-coup-decisif': 2,
+    },
+    fateTargeting: {
+      // Volet « contre » : ARMEMENT renchérit l'assassinat du Héros qui le porte → à
+      // poser sur LAURIE, la seule cible dont le coût compte vraiment pour la victoire.
+      strengthenTargets: [
+        { itemCardId: 'custom-michael-meyers-armement', preferHeroCardIds: ['custom-michael-meyers-laurie-strode'] },
+      ],
+      // Ses cartes-clés à lui faire défausser, par ordre décroissant : la carte unique qui
+      // déverrouille la Demeure, puis l'assassinat, puis l'invocation de victimes.
+      valuableHandCards: [
+        'custom-michael-meyers-gardons-le-meilleur-pour-la-fin',
+        'custom-michael-meyers-assassiner',
+        'custom-michael-meyers-jouez-avec-la-nourriture',
+      ],
+    },
+  },
 }
 
 /** Vrai si `cardId` est un Héros-cible de capture de ce vilain (Peach pour Bowser) :

@@ -1008,7 +1008,11 @@ export function objectiveScore(p: PlayerState): number {
         const laurieLoc = p.locations.find((l) => (p.board[l.id] ?? []).some((c) => c.instanceId === laurie.instanceId))?.id
         const reachable = !laurieLoc || !(p.lockedLocations ?? []).includes(laurieLoc)
         if (!reachable) {
-          const s = 0.5 + (lvl >= 3 ? 0.1 : ((lvl - 1) / 2) * 0.15) + (hasWeapon ? 0.05 : 0)
+          // Tant que le palier 3 manque, une AUTRE victime dans le royaume est le seul moyen
+          // de le décrocher (chaque élimination monte d'un palier) → petit palier pour que le
+          // bot en fasse venir une (Jouez avec la nourriture) au lieu de tourner en rond.
+          const fodder = lvl < 3 && realmHeroes.length > 1 ? 0.03 : 0
+          const s = 0.5 + (lvl >= 3 ? 0.1 : ((lvl - 1) / 2) * 0.15) + (hasWeapon ? 0.05 : 0) + fodder
           return Math.min(0.65, s)
         }
         // Prête à mourir si une Arme est équipée et le royaume dégagé (chaque AUTRE Héros +2).
@@ -1020,11 +1024,26 @@ export function objectiveScore(p: PlayerState): number {
       // LAURIE pas encore invoquée : progression = Mal Intérieur vers 3 (prérequis).
       let s = [0, 0.12, 0.34, 0.58][Math.min(3, lvl)] ?? 0.12
       if (hasWeapon) s += 0.06
+      // Une victime DÉJÀ dans le royaume = le palier suivant à portée de main. Sans ce palier,
+      // faire venir un Héros était un coup NEUTRE (voire négatif : 2 JT dépensés) alors que
+      // c'est l'unique carburant du Mal Intérieur → le bot restait passif des tours entiers.
+      if (lvl < 3 && realmHeroes.length > 0) s += hasWeapon ? 0.05 : 0.03
       // Au niveau 3 avec « Gardons le meilleur pour la fin » en main (prêt à invoquer LAURIE).
       if (lvl >= 3 && p.hand.some((c) => c.requiresMalInterieur !== undefined)) s += 0.08
       return Math.min(0.72, s)
     }
   }
+}
+
+/**
+ * Vilain « CHASSEUR » : sa progression vient des ÉLIMINATIONS de Héros dans son propre
+ * royaume (Michael Myers — chaque Héros éliminé fait monter le Mal Intérieur, et l'objectif
+ * lui-même est d'éliminer un Héros nommé). Pour lui, un Héros chez soi est du CARBURANT :
+ * l'évaluation ne le pénalise pas, et le pion cherche à le rejoindre. Piloté par le TYPE
+ * d'objectif → générique pour tout futur vilain du même genre.
+ */
+function heroesAreFuel(p: PlayerState): boolean {
+  return p.objective.type === 'DEFEAT_NAMED_HERO'
 }
 
 /** Nombre de lieux du joueur portant au moins une Malédiction. */
@@ -1282,7 +1301,9 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
       // ATOUT, pas une gêne → pas de pénalité (le gradient est porté par objectiveScore).
       // Idem pour un SURVIVANT du Piégeur : c'est une CIBLE à éliminer, pas une menace
       // (sa progression révélé/blessé/critique/accroché est portée par objectiveScore).
-      else if (c.type === 'hero' && !isCaptureTargetHero(me.villain, c.cardId) && !c.isSurvivor) {
+      // Idem pour un vilain CHASSEUR (Michael Myers) : chaque Héros de son royaume est du
+      // carburant à éliminer. Sa seule vraie gêne (actions recouvertes) est comptée à part.
+      else if (c.type === 'hero' && !isCaptureTargetHero(me.villain, c.cardId) && !c.isSurvivor && !heroesAreFuel(me)) {
         heroesInMyRealm = true
         score -= pr
           ? (pr.heroBase + (c.strength ?? 0) * pr.heroForce) * perPower
@@ -1349,6 +1370,15 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
       else posBonus += 3
     }
     score += Math.min(posBonus, 8)
+  }
+  // Michael Myers — bonus POSITIONNEL du chasseur : une victime sur le lieu du pion avec une
+  // Arme équipée est immédiatement ASSASSINABLE. Oriente à la fois le déplacement du pion et
+  // le LIEU où l'on fait venir une victime (Jouez avec la nourriture), que l'éval de l'état
+  // résultant ne distingue pas autrement. Petit poids : le gradient de victoire reste porté
+  // par objectiveScore.
+  if (heroesAreFuel(me) && me.pawnLocation) {
+    const preys = (me.board[me.pawnLocation] ?? []).filter((c) => c.type === 'hero').length
+    if (preys > 0) score += me.equippedWeapon ? Math.min(preys * 3, 6) : 1
   }
   // Bowser — positionnement des Alliés autour de l'Observatoire. Tant qu'il RESTE des
   // Étoiles, l'Observatoire n'est PAS verrouillé → Luigi peut y débarquer et défausser

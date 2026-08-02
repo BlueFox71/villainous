@@ -98,6 +98,33 @@ export function objectiveCriticalCardIds(p: PlayerState): Set<string> {
       }
       return keep
     }
+    case 'DEFEAT_NAMED_HERO': {
+      // Michael Myers (et tout vilain « chasseur » du même type) : son chemin de victoire
+      // passe par des ÉLIMINATIONS, et ses outils sont souvent injouables sur l'instant
+      // (donc jetés par erreur pour cycler la main). On les repère par DONNÉE, pas par id :
+      //  • l'ARME (tant qu'aucune n'est équipée) et la carte qui va la chercher : sans arme,
+      //    aucune élimination possible ;
+      //  • l'ÉLIMINATION au lieu du pion (ASSASSINER) : injouable sans Héros sur place, mais
+      //    c'est littéralement la carte de victoire ;
+      //  • l'INVOCATION d'un Héros de sa pioche Fatalité : son carburant, tant que le palier
+      //    maximal n'est pas atteint (après, une victime de plus ne fait que renchérir le
+      //    coup final) ;
+      //  • la carte à PRÉREQUIS de palier (Gardons le meilleur pour la fin) : elle déverrouille
+      //    le lieu du Héros-cible, et n'existe qu'en un exemplaire.
+      const keep = new Set<string>()
+      const needsWeapon = !p.equippedWeapon
+      const needsFuel = (p.malInterieur ?? 0) < 3
+      for (const c of [...p.hand, ...p.deck, ...p.discard]) {
+        const eff = c.effects ?? []
+        if (c.requiresMalInterieur !== undefined) keep.add(c.cardId)
+        if (eff.some((e) => e.type === 'INSTANT_VANQUISH_HERO_AT_PAWN')) keep.add(c.cardId)
+        if (needsWeapon && (c.isWeapon || eff.some((e) => e.type === 'MICHAEL_FETCH_WEAPON_FROM_DECK'))) {
+          keep.add(c.cardId)
+        }
+        if (needsFuel && eff.some((e) => e.type === 'REVEAL_FATE_UNTIL_HERO_CHOICE')) keep.add(c.cardId)
+      }
+      return keep
+    }
     default:
       return new Set<string>()
   }
@@ -524,6 +551,28 @@ export function enumerateActions(state: GameState): GameAction[] {
   // Liste de Fidget (Ratigan) : affichage informatif, le bot l'acquitte simplement.
   if (state.pendingReveal) {
     return [{ type: 'ACKNOWLEDGE_REVEAL' }]
+  }
+
+  // Michael Myers — Arme du crime : une Arme de la pioche, ÉQUIPÉE (on paie son coût) ou
+  // simplement prise en main. Sans cette énumération, la ligne « jouer Arme du crime »
+  // butait sur un choix non résolu et s'évaluait donc SANS l'Arme : le bot ne s'armait
+  // jamais, et ne pouvait plus rien assassiner (cf. parties bloquées au Mal Intérieur 1).
+  if (state.pendingWeaponFetch) {
+    const pwf = state.pendingWeaponFetch
+    const p = state.players[pwf.playerIndex]
+    const weapons = p.deck.filter((c) => pwf.candidateIds.includes(c.instanceId))
+    const out: GameAction[] = []
+    for (const wpn of weapons) {
+      if ((wpn.cost ?? 0) <= p.power) out.push({ type: 'RESOLVE_WEAPON_FETCH', instanceId: wpn.instanceId, equip: true })
+      out.push({ type: 'RESOLVE_WEAPON_FETCH', instanceId: wpn.instanceId })
+    }
+    return out.length ? out : [{ type: 'RESOLVE_WEAPON_FETCH' }]
+  }
+
+  // Michael Myers — Trace de sang : 2 Pouvoir, ou déplacer un Héros vers un lieu voisin
+  // (le bot préfère souvent le rapprocher de son pion pour l'assassiner).
+  if (state.pendingBloodTrace) {
+    return [{ type: 'RESOLVE_BLOOD_TRACE', choice: 'power' }, { type: 'RESOLVE_BLOOD_TRACE', choice: 'move' }]
   }
 
   // Sombra — Piratage : une option par action désactivable (le bot score chacune).
