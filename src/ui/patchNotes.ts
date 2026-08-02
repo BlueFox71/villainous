@@ -52,7 +52,7 @@ export const PATCH_NOTES: PatchNote[] = [
     title: 'Aperçu de l’écran de chargement',
     tags: ['interface'],
     changes: [
-      "Nouveau bouton **⏳ Écran de chargement** dans le choix des vilains : il montre l'**écran de préparation seul**, en boucle, avec les **pions** et les **couleurs** des vilains déjà choisis. Échap ou un clic pour refermer.",
+      "Nouveau bouton **⏳ Écran de chargement**, rangé dans le panneau **Configuration** du choix des vilains : il montre l'**écran de préparation seul**, en boucle, avec les **pions** et les **couleurs** des vilains déjà choisis. Échap ou un clic pour refermer.",
     ],
   },
   {

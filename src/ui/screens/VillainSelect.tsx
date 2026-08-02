@@ -653,6 +653,19 @@ export function VillainSelect({ onStart, onBack }: Props) {
             draft={tweakDraft}
             onVillainChange={editTweak}
             onDraftChange={setTweakDraft}
+            leftSlot={
+              /* Aperçu de l'écran de chargement seul : met en scène les vilains DÉJÀ
+                 choisis (pions + teintes) s'il y en a. */
+              <button
+                type="button"
+                onClick={() => setLoaderPreview(true)}
+                onMouseEnter={playHover}
+                title="Voir l’écran de chargement seul (en boucle)"
+                className="rounded-lg border border-amber-400/50 bg-amber-500/20 px-2.5 py-1 text-xs font-bold text-amber-100 transition hover:bg-amber-500/35"
+              >
+                ⏳ Écran de chargement
+              </button>
+            }
           />
         )}
       </header>
@@ -722,19 +735,6 @@ export function VillainSelect({ onStart, onBack }: Props) {
                 }`}
               >
                 🤖 Entre Ordis
-              </button>
-            )}
-            {/* DEV : aperçu de l'écran de chargement seul (absent du build/exe). Met en scène
-                les vilains DÉJÀ choisis (pions + teintes) s'il y en a. */}
-            {devBuild && (
-              <button
-                type="button"
-                onClick={() => setLoaderPreview(true)}
-                onMouseEnter={playPlayButtonHover}
-                title="Voir l’écran de chargement seul (en boucle)"
-                className="rounded-lg border border-amber-500/40 bg-amber-900/30 px-3 py-1.5 text-xs font-bold text-amber-300/60 opacity-70 transition-colors hover:bg-amber-800/40 hover:opacity-100"
-              >
-                ⏳ Écran de chargement
               </button>
             )}
             <div className="w-72">
