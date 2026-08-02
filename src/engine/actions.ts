@@ -1943,8 +1943,8 @@ function applyDiscardCards(
   consumed = {
     ...consumed,
     usedActionIds: [...consumed.usedActionIds, actionId],
-    // Suivi des cartes défaussées ce tour-ci (déclencheur Désespoir, Dr Facilier).
-    activeDiscardedCount: (consumed.activeDiscardedCount ?? 0) + discarded.length,
+    // NB : le suivi des cartes défaussées ce tour (déclencheur Désespoir, Misérable
+    // cloporte…) est générique, cf. `trackHandDiscards` dans `applyAction`.
     log: [
       ...consumed.log,
       `${me.villainName} défausse ${discarded.length} carte${discarded.length > 1 ? 's' : ''}${
@@ -12741,9 +12741,45 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   // (3) Sumbra / Kilaire — synchronise la face/contrôle des lieux conquérables selon la
   // garnison (une pose/perte d'Allié peut faire basculer un lieu rival ↔ contrôlé).
   const after = syncLocationControlAll(syncLuciferTrap(syncRoseChain(syncPetePowerPlay(syncRatiganObjectiveAll(journaled)))))
+  // Comptage générique des cartes que le joueur actif a défaussées de sa main (Conditions
+  // « lorsqu'un adversaire défausse au moins N cartes »).
+  const counted = trackHandDiscards(state, action, after)
   // Dio — ZA WARUDO! : coût croissant par action + suivi des 14 actions du royaume.
   // Puis Gaston : victoire immédiate si le dernier Obstacle vient d'être retiré.
-  return checkEventDrivenWin(checkImmediateObstacleWin(applyDioZaWarudo(action, after)))
+  return checkEventDrivenWin(checkImmediateObstacleWin(applyDioZaWarudo(action, counted)))
+}
+
+/**
+ * Comptage GÉNÉRIQUE des cartes défaussées DEPUIS SA MAIN par le joueur actif pendant une
+ * action, quel que soit le chemin emprunté : action de lieu « Défausser », coût d'une carte,
+ * effet qui renouvelle la main, défausse anti-thésaurisation du bot, défausse imposée par un
+ * Héros… Alimente `activeDiscardedCount`, lu par les Conditions à trigger
+ * `opponent-discarded-ge` (Désespoir, Misérable cloporte, Manque de respect…).
+ *
+ * - On DIFFÈRE la main d'avant avec la défausse d'après : une carte qui a quitté la main pour
+ *   la défausse compte ; un aller-retour (défaussée puis reprise dans la même action) non.
+ * - La carte JOUÉE ne compte pas : un Événement part en défausse en se résolvant, ce n'est
+ *   pas une défausse.
+ * - Les cartes défaussées depuis la PIOCHE (fouille, scry) ne comptent pas : seule la main
+ *   est observée.
+ * - Sauté si l'action a changé de joueur actif (fin de tour : le compteur vient d'être remis
+ *   à zéro pour le tour suivant).
+ */
+function trackHandDiscards(before: GameState, action: GameAction, after: GameState): GameState {
+  if (after.activePlayer !== before.activePlayer) return after
+  const idx = before.activePlayer
+  const handBefore = before.players[idx]?.hand ?? []
+  if (handBefore.length === 0) return after
+  const played = action.type === 'PLAY_CARD' || action.type === 'PLAY_CONDITION' ? action.instanceId : null
+  const handNow = new Set((after.players[idx]?.hand ?? []).map((c) => c.instanceId))
+  const discardNow = new Set((after.players[idx]?.discard ?? []).map((c) => c.instanceId))
+  let n = 0
+  for (const c of handBefore) {
+    if (c.instanceId === played) continue
+    if (!handNow.has(c.instanceId) && discardNow.has(c.instanceId)) n++
+  }
+  if (n === 0) return after
+  return { ...after, activeDiscardedCount: (after.activeDiscardedCount ?? 0) + n }
 }
 
 /**

@@ -47,6 +47,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.36',
+    date: '2026-08-02',
+    title: 'Les Conditions comptent toutes les défausses',
+    tags: ['correctif', 'regles'],
+    changes: [
+      "Les Conditions du type « **lorsqu'un adversaire défausse au moins N cartes** » (**Misérable cloporte**, **Désespoir**, **Manque de respect**…) ne réagissaient qu'à l'action de lieu **Défausser**.",
+      "Elles comptent désormais **toutes** les cartes jetées de la main : coût d'une carte, effet qui renouvelle la main, main allégée en fin de tour. Jouer un Événement, lui, n'est toujours **pas** une défausse.",
+    ],
+  },
+  {
     version: '1.9.35',
     date: '2026-08-01',
     title: 'Des pions au propre',
