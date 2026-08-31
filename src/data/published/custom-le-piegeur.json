@@ -1,0 +1,738 @@
+{
+  "formatVersion": 1,
+  "id": "custom-le-piegeur",
+  "name": "Le Piégeur",
+  "stars": 4,
+  "color": "#a9633d",
+  "pawnHeightPx": 65,
+  "boardObjective": "",
+  "objectiveDescription": "",
+  "objective": {
+    "type": "POWER_THRESHOLD",
+    "threshold": 20
+  },
+  "locations": [
+    {
+      "id": "loc-1",
+      "name": "ENTREPÔT GRONDANT",
+      "actions": [
+        {
+          "id": "play-card",
+          "type": "PLAY_CARD",
+          "row": "top",
+          "label": "Jouer une carte"
+        },
+        {
+          "id": "fate",
+          "type": "MOVE_HERO",
+          "row": "bottom",
+          "label": "Déplacer un héros"
+        },
+        {
+          "id": "vanquish",
+          "type": "PLAY_CARD",
+          "row": "bottom",
+          "label": "Jouer une carte"
+        },
+        {
+          "id": "act1",
+          "type": "GAIN_POWER",
+          "amount": 2,
+          "row": "bottom",
+          "label": "Gagner 2 pouvoir"
+        }
+      ],
+      "image": "/cards/custom-le-piegeur/loc-loc-1.png?v=1783007672443"
+    },
+    {
+      "id": "loc-2",
+      "name": "FONDERIE DE SOUFFRANCE",
+      "actions": [
+        {
+          "id": "play-card",
+          "type": "DISCARD_CARDS",
+          "row": "top",
+          "label": "Défausser des cartes"
+        },
+        {
+          "id": "fate",
+          "type": "PLAY_CARD",
+          "row": "bottom",
+          "label": "Jouer une carte"
+        },
+        {
+          "id": "vanquish",
+          "type": "PLAY_CARD",
+          "row": "bottom",
+          "label": "Jouer une carte"
+        },
+        {
+          "id": "act1",
+          "type": "GAIN_POWER",
+          "amount": 3,
+          "row": "bottom",
+          "label": "Gagner 3 pouvoir"
+        }
+      ],
+      "image": "/cards/custom-le-piegeur/loc-loc-2.png?v=1783007672443",
+      "imagePos": {
+        "x": 50,
+        "y": 50,
+        "zoom": 1.3
+      }
+    },
+    {
+      "id": "loc-3",
+      "name": "PUIT D'ASPHYXIE",
+      "actions": [
+        {
+          "id": "play-card",
+          "type": "GAIN_POWER",
+          "row": "top",
+          "label": "Gagner 1 pouvoir"
+        },
+        {
+          "id": "fate",
+          "type": "FATE",
+          "row": "bottom",
+          "label": "Fatalité"
+        },
+        {
+          "id": "vanquish",
+          "type": "PLAY_CARD",
+          "row": "bottom",
+          "label": "Jouer une carte"
+        },
+        {
+          "id": "act1",
+          "type": "DISCARD_CARDS",
+          "amount": 1,
+          "row": "bottom",
+          "label": "Défausser des cartes"
+        }
+      ],
+      "image": "/cards/custom-le-piegeur/loc-loc-3.png?v=1783007672443"
+    },
+    {
+      "id": "loc-4",
+      "name": "FORÊT PROFONDE",
+      "actions": [
+        {
+          "id": "gain-power",
+          "type": "FATE",
+          "amount": 1,
+          "row": "top",
+          "label": "Fatalité"
+        },
+        {
+          "id": "fate",
+          "type": "MOVE_HERO",
+          "row": "bottom",
+          "label": "Déplacer un héros"
+        },
+        {
+          "id": "vanquish",
+          "type": "PLAY_CARD",
+          "row": "bottom",
+          "label": "Jouer une carte"
+        },
+        {
+          "id": "act1",
+          "type": "PLAY_CARD",
+          "amount": 1,
+          "row": "bottom",
+          "label": "Jouer une carte"
+        }
+      ],
+      "image": "/cards/custom-le-piegeur/loc-loc-4.jpg?v=1783007672443",
+      "imagePos": {
+        "x": 50,
+        "y": 50,
+        "zoom": 1.2
+      }
+    }
+  ],
+  "cards": [
+    {
+      "id": "custom-le-piegeur-personne-n-echappe-a-la-mort",
+      "name": "PERSONNE N'ÉCHAPPE À LA MORT",
+      "englishName": "PERSONNE N'ÉCHAPPE À LA MORT",
+      "deck": "villain",
+      "type": "item",
+      "copies": 1,
+      "text": "Associez cette carte à un Tlieu. Tant que cette carte est présente, les Survivants passent directement en état critique avec la carte \"FORCE BRUTE\".",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-personne-n-echappe-a-la-mort.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.72,
+        "offsetXPct": 0,
+        "offsetYPct": -23
+      },
+      "cost": 3,
+      "textLayout": {
+        "x": 50,
+        "y": 77.3091770821389,
+        "w": 79.69444444444444,
+        "size": 68
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-personne-n-echappe-a-la-mort.art.jpg?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-sanctuaire-monstrueux",
+      "name": "SANCTUAIRE MONSTRUEUX",
+      "englishName": "SANCTUAIRE MONSTRUEUX",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 4,
+      "text": "Mettez un Survivant en état critique de votre lieu sur le CROCHET de ce lieu.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-sanctuaire-monstrueux.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.53,
+        "offsetXPct": 0,
+        "offsetYPct": -24
+      },
+      "cost": 2,
+      "textLayout": {
+        "x": 50,
+        "y": 77.06455681687879,
+        "w": 78.30555555555556,
+        "size": 65
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-sanctuaire-monstrueux.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-force-brute",
+      "name": "FORCE BRUTE",
+      "englishName": "FORCE BRUTE",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 4,
+      "text": "Blessez un Survivant sur votre lieu et déplacez le sur un lieu voisin   OU   Mettez le en état critique s'il l'est déjà bléssé.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-force-brute.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.59,
+        "offsetXPct": 0,
+        "offsetYPct": -21
+      },
+      "cost": 1,
+      "textLayout": {
+        "x": 50.69444444444444,
+        "y": 77.3091770821389,
+        "w": 78.30555555555556,
+        "size": 63
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-force-brute.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-piege-a-ours",
+      "name": "PIÈGE À OURS",
+      "englishName": "PIÈGE À OURS",
+      "deck": "villain",
+      "type": "item",
+      "copies": 2,
+      "text": "Associez cette carte à un lieu.   Si un Survivant est joué ou déplacé sur un lieu avec un PIÈGE À OURS, celui-ci perd un segment de santé et sont immobilisé pendant 1 tour.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-piege-a-ours.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.82,
+        "offsetXPct": 0,
+        "offsetYPct": -26
+      },
+      "cost": 1,
+      "textLayout": {
+        "x": 50,
+        "y": 78.2876581431793,
+        "w": 78.30555555555556,
+        "size": 60
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-piege-a-ours.art.jpg?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-pudding-de-survivants",
+      "name": "PUDDING DE SURVIVANTS",
+      "englishName": "PUDDING DE SurvivantS",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 2,
+      "text": "Gagnez 1 jeton Pouvoir et 1 jeton Pouvoir supplémentaire par Survivant éliminé ou sur votre royaume.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-pudding-de-survivants.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.83,
+        "offsetXPct": 0,
+        "offsetYPct": -21
+      },
+      "cost": 0,
+      "textLayout": {
+        "x": 49.65277777777778,
+        "y": 78.5322784084394,
+        "w": 79,
+        "size": 63
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-pudding-de-survivants.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-fermeture-de-la-trappe",
+      "name": "FERMETURE DE LA TRAPPE",
+      "englishName": "FERMETURE DE LA TRAPPE",
+      "deck": "villain",
+      "type": "condition",
+      "copies": 1,
+      "text": "Cette carte est jouable pendant le tour d'un adversaire s'il utilise une carte Événement d'un coût supérieur ou égal à 2.   Jouez gratuitement un Événement de votre main.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-fermeture-de-la-trappe.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.6,
+        "offsetXPct": 0,
+        "offsetYPct": -23
+      },
+      "textLayout": {
+        "x": 50.34722222222222,
+        "y": 77.3091770821389,
+        "w": 81.77777777777777,
+        "size": 55
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-fermeture-de-la-trappe.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-explosion-d-un-generateur",
+      "name": "EXPLOSION D'UN GÉNÉRATEUR",
+      "englishName": "EXPLOSION D'UN GÉNÉRATEUR",
+      "deck": "villain",
+      "type": "condition",
+      "copies": 2,
+      "text": "Cette carte est jouable pendant le tour d'un adversaire si un de ses Alliés est défaussé pour éliminer un Héros.   Révélez un survivant.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-explosion-d-un-generateur.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -25
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 76.33069602109849,
+        "w": 79,
+        "size": 63
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-explosion-d-un-generateur.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-agitation",
+      "name": "AGITATION",
+      "englishName": "AGITATION",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 3,
+      "text": "Cherchez deux Événement ou un Objet dans votre défausse et ajoutez le à votre main.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-agitation.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.71,
+        "offsetXPct": 0,
+        "offsetYPct": -25
+      },
+      "cost": 1,
+      "textLayout": {
+        "x": 49.30555555555556,
+        "y": 76.5753162863586,
+        "w": 76.91666666666667,
+        "size": 68
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-agitation.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-presence-perturbante",
+      "name": "PRÉSENCE PERTURBANTE",
+      "englishName": "PRÉSENCE PERTURBANTE",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 3,
+      "text": "Piochez 5 cartes, ajoutez en 3 à votre main et défaussez les autres.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-presence-perturbante.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -26
+      },
+      "cost": 1,
+      "textLayout": {
+        "x": 49.65277777777778,
+        "y": 76.8199365516187,
+        "w": 79,
+        "size": 63
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-presence-perturbante.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-memento-mori",
+      "name": "MEMENTO MORI",
+      "englishName": "MEMENTO MORI",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 1,
+      "text": "Éliminez un Survivant qui n'a plus qu'un point de vie et en état critique sur le lieu ou vous êtes.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-memento-mori.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -26
+      },
+      "cost": 3,
+      "textLayout": {
+        "x": 50.34722222222222,
+        "y": 77.3091770821389,
+        "w": 78.30555555555556,
+        "size": 70
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-memento-mori.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-rayon-de-terreur",
+      "name": "RAYON DE TERREUR",
+      "englishName": "RAYON DE TERREUR",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 3,
+      "text": "Déplacez un survivant vers un lieu voisin.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-rayon-de-terreur.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -25
+      },
+      "cost": 1,
+      "textLayout": {
+        "x": 49.30555555555556,
+        "y": 77.553797347399,
+        "w": 78.30555555555556,
+        "size": 66
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-rayon-de-terreur.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-claudette-morel",
+      "name": "CLAUDETTE MOREL",
+      "englishName": "CLAUDETTE MOREL",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "Lorsque CLAUDETTE est révélé : Soignez un survivant blessé.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-claudette-morel.png?v=1783007672443",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "typeLabel": "Survivant",
+      "group": "Survivant",
+      "typeColor": "#e8a93a",
+      "textLayout": {
+        "x": 50,
+        "y": 76.8199365516187,
+        "w": 79,
+        "size": 58
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-claudette-morel.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-dwight-fairfield",
+      "name": "DWIGHT FAIRFIELD",
+      "englishName": "DWIGHT FAIRFIELD",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 1,
+      "text": "Lorsque DWIGHT est révélé , Décrochez un survivant du CROCHET. Il est alors en état blessé.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-dwight-fairfield.png?v=1783007672443",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "typeLabel": "Survivant",
+      "group": "Survivant",
+      "typeColor": "#e8a93a",
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-dwight-fairfield.art.png?v=1783007672443",
+      "textLayout": {
+        "x": 49.65277777777778,
+        "y": 77.553797347399,
+        "w": 79,
+        "size": 63
+      }
+    },
+    {
+      "id": "custom-le-piegeur-meg-thomas",
+      "name": "MEG THOMAS",
+      "englishName": "MEG THOMAS",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 1,
+      "text": "Lorsque que MEG est révélé elle est déplacée au plus loin du piégeur.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-meg-thomas.png?v=1783007672443",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "typeLabel": "Survivant",
+      "group": "Survivant",
+      "typeColor": "#e8a93a",
+      "textLayout": {
+        "x": 50,
+        "y": 76.5753162863586,
+        "w": 79,
+        "size": 63
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-meg-thomas.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-jake-park",
+      "name": "JAKE PARK",
+      "englishName": "JAKE PARK",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 1,
+      "text": "Lorsque JAKE est révélé , désactivez un CROCHET pendant 1 tour. Désactivez un CROCHET pendant 1 tour. Ou défaussez un piège à ours.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-jake-park.png?v=1783007672443",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "typeLabel": "Survivant",
+      "group": "Survivant",
+      "typeColor": "#e8a93a",
+      "textLayout": {
+        "x": 51.04166666666667,
+        "y": 77.06455681687879,
+        "w": 78.30555555555556,
+        "size": 65
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-jake-park.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-prophylaxie",
+      "name": "CONNAISSANCE EN BOTANIQUE",
+      "englishName": "PROPHYLAXIE",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 3,
+      "text": "Un Survivant récupère un segment de santé.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-prophylaxie.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.59,
+        "offsetXPct": 0,
+        "offsetYPct": -27
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 77.06455681687879,
+        "w": 76.91666666666667,
+        "size": 63
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-prophylaxie.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-adrenaline",
+      "name": "ADRÉNALINE",
+      "englishName": "ADRÉNALINE",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 1,
+      "text": "Un survivant récupère un segment de santé et est deplacez vers un lieu voisin.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-adrenaline.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -26
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 77.7984176126591,
+        "w": 78.30555555555556,
+        "size": 58
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-adrenaline.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-sabotage",
+      "name": "SABOTAGE",
+      "englishName": "SABOTAGE",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 3,
+      "text": "Désactivez un CROCHET pendant 1 tour. Ou défaussez un piège à ours.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-sabotage.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -26
+      },
+      "textLayout": {
+        "x": 50.34722222222222,
+        "y": 76.8199365516187,
+        "w": 81.77777777777777,
+        "size": 63
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-sabotage.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-montrez-ce-que-vous-savez-faire",
+      "name": "MENEUR",
+      "englishName": "MONTREZ CE QUE VOUS SAVEZ FAIRE",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 3,
+      "text": "Décrochez quelqu'un d'un CROCHET. Le Survivant est alors en état blessé.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-montrez-ce-que-vous-savez-faire.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.72,
+        "offsetXPct": 0,
+        "offsetYPct": -18
+      },
+      "textLayout": {
+        "x": 49.30555555555556,
+        "y": 78.0430378779192,
+        "w": 78.30555555555556,
+        "size": 65
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-montrez-ce-que-vous-savez-faire.art.jpg?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-palette",
+      "name": "PALETTE",
+      "englishName": "PALETTE",
+      "deck": "fate",
+      "type": "item",
+      "copies": 3,
+      "text": "Associez cette carte à un lieu.   Le Piégeur ne peut pas aller sur ce lieu tant que cette carte est présente.   À tout moment, le Piégeur peut dépenser 2 jetons Pouvoir pour la défausser.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-palette.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.72,
+        "offsetXPct": 0,
+        "offsetYPct": -27
+      },
+      "textLayout": {
+        "x": 48.611111111111114,
+        "y": 76.0860757558384,
+        "w": 79,
+        "size": 60
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-palette.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-purification",
+      "name": "PURIFICATION",
+      "englishName": "PURIFICATION",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 1,
+      "text": "Défaussez PERSONNE N'ÉCHAPPE A LA MORT, qu'elle soit dans la main du piégeur ou sur son royaume.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-purification.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.66,
+        "offsetXPct": 0,
+        "offsetYPct": -24
+      },
+      "textLayout": {
+        "x": 49.65277777777778,
+        "y": 75.8414554905783,
+        "w": 80.38888888888889,
+        "size": 63
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-purification.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-presence-perturbante-ne-coute-plus-que-1",
+      "name": "MARQUE D'ÉRAFLURE",
+      "englishName": "Agitation ne coûte plus que 1",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 4,
+      "text": "Révélez un Survivant sur le lieu ou vous êtes et déplacez le vers un lieu voisin.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-presence-perturbante-ne-coute-plus-que-1.png?v=1783007672443",
+      "artTransform": {
+        "scale": 0.81,
+        "offsetXPct": 0,
+        "offsetYPct": -19
+      },
+      "cost": 2,
+      "textLayout": {
+        "x": 48.958333333333336,
+        "y": 75.8414554905783,
+        "w": 81.08333333333333,
+        "size": 70
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-presence-perturbante-ne-coute-plus-que-1.art.png?v=1783007672443"
+    },
+    {
+      "id": "custom-le-piegeur-c1",
+      "name": "LAMPE TORCHE",
+      "englishName": "",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 1,
+      "text": "Le piégeur restera sur son lieu à son prochain tour.",
+      "image": "/cards/custom-le-piegeur/custom-le-piegeur-c1.png?v=1783007672443",
+      "artTransform": {
+        "scale": 1.01,
+        "offsetXPct": 0,
+        "offsetYPct": -32
+      },
+      "strength": 1,
+      "typeLabel": "Événement",
+      "typeColor": "#6ec05a",
+      "textLayout": {
+        "x": 50.34722222222222,
+        "y": 76.0860757558384,
+        "w": 82.47222222222223,
+        "size": 70
+      },
+      "artImage": "/cards/custom-le-piegeur/custom-le-piegeur-c1.art.png?v=1783007672443"
+    }
+  ],
+  "createdAt": "2026-07-02T10:47:07.592Z",
+  "updatedAt": "2026-07-02T15:54:32.443Z",
+  "backVillainImage": "/cards/custom-le-piegeur/back-villain.png?v=1783007672443",
+  "backFateImage": "/cards/custom-le-piegeur/back-fate.png?v=1783007672443",
+  "boardImage": "/cards/custom-le-piegeur/board.jpg?v=1783007672443",
+  "portrait": "/cards/custom-le-piegeur/portrait.png?v=1783007672443",
+  "portraitRaw": "/cards/custom-le-piegeur/portrait-raw.png?v=1783007672443",
+  "portraitCrop": {
+    "x": 50,
+    "y": 50,
+    "zoom": 1
+  },
+  "presentation": "/cards/custom-le-piegeur/presentation.png?v=1783007672443",
+  "backOverlays": [
+    {
+      "id": "ovl-1",
+      "image": "/cards/custom-le-piegeur/back-overlay-0.png?v=1783007672443",
+      "x": 50,
+      "y": 50,
+      "size": 100,
+      "aspect": 1.4085281980742779
+    }
+  ],
+  "pawnImage": "/cards/custom-le-piegeur/pawn.png?v=1783007672443",
+  "boardArt": "/cards/custom-le-piegeur/board-art.png?v=1783007672443",
+  "portraitPos": {
+    "x": 58,
+    "y": 50
+  },
+  "extraDecks": [
+    "Survivant"
+  ],
+  "backExtra": {
+    "colorMode": "custom",
+    "overlays": [
+      {
+        "id": "ovl-1",
+        "image": "/cards/custom-le-piegeur/back-extra-overlay-0.png?v=1783007672443",
+        "x": 50,
+        "y": 50,
+        "size": 100,
+        "aspect": 1.4085281980742779
+      }
+    ],
+    "color": "#468ad2"
+  },
+  "backExtraImage": "/cards/custom-le-piegeur/back-extra.png?v=1783007672443",
+  "published": true,
+  "creator": "Alexis",
+  "origin": "Collaborations"
+}

@@ -47,6 +47,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.42',
+    date: '2026-08-31',
+    title: 'Le Piégeur retrouvé',
+    tags: ['correctif', 'atelier'],
+    changes: [
+      "**Le Piégeur** réapparaît définitivement : il était absent des vilains embarqués et ne survivait donc que dans la mémoire du navigateur, d'où ses **disparitions à répétition**.",
+      "Son plateau, son pion, ses dos et ses **23 cartes** sont désormais livrés avec l'application — il reste là quoi qu'il arrive.",
+    ],
+  },
+  {
     version: '1.9.41',
     date: '2026-08-02',
     title: 'Vingt-trois pions refaits',
