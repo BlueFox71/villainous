@@ -49,11 +49,11 @@ export const PATCH_NOTES: PatchNote[] = [
   {
     version: '1.9.42',
     date: '2026-08-31',
-    title: 'Le Piégeur retrouvé',
-    tags: ['correctif', 'atelier'],
+    title: "Atelier : Le Piégeur ne s'efface plus",
+    tags: ['atelier', 'correctif'],
     changes: [
-      "**Le Piégeur** réapparaît définitivement : il était absent des vilains embarqués et ne survivait donc que dans la mémoire du navigateur, d'où ses **disparitions à répétition**.",
-      "Son plateau, son pion, ses dos et ses **23 cartes** sont désormais livrés avec l'application — il reste là quoi qu'il arrive.",
+      "**Le Piégeur** ne disparaît plus de l'Atelier : son plateau, son pion, ses dos et ses **23 cartes** sont désormais livrés avec l'application, au lieu de ne survivre que dans la mémoire du navigateur.",
+      "Il reste **non publié** : toujours absent du jeu tant qu'il n'est pas terminé.",
     ],
   },
   {
