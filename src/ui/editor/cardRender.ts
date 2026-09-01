@@ -520,6 +520,14 @@ function drawBadgeNumber(
   // numéraux-images 1/2/3).
   ctx.textBaseline = 'alphabetic'
   const s = String(value)
+  // Nombre à plusieurs chiffres (coût ≥ 10, force signée…) : on RÉTRÉCIT juste ce
+  // qu'il faut pour rester dans la pastille (un chiffre seul n'est jamais réduit).
+  const maxW = size * 0.95
+  const rawW = ctx.measureText(s).width
+  if (rawW > maxW) {
+    size = (size * maxW) / rawW
+    ctx.font = `${size}px ${FONT}`
+  }
   const mt = ctx.measureText(s)
   const baselineY = cy + (mt.actualBoundingBoxAscent - mt.actualBoundingBoxDescent) / 2
   ctx.fillStyle = color

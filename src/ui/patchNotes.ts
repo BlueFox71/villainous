@@ -47,6 +47,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.43',
+    date: '2026-09-01',
+    title: 'Atelier : des coûts au-delà de 9',
+    tags: ['atelier'],
+    changes: [
+      "Le **coût** d'une carte peut monter jusqu'à **99** dans l'Atelier, au lieu de s'arrêter à 9.",
+      "Les nombres à deux chiffres sont **réduits automatiquement** pour tenir dans la pastille de la carte.",
+    ],
+  },
+  {
     version: '1.9.42',
     date: '2026-08-31',
     title: "Atelier : Le Piégeur ne s'efface plus",

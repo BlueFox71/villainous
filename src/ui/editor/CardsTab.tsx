@@ -276,7 +276,7 @@ function CardForm({
                   className={`${inputClass} w-16`}
                   value={card.cost ?? 0}
                   min={0}
-                  max={9}
+                  max={99}
                   disabled={card.cost === undefined || !!card.costVariable}
                   onChange={(e) => set({ cost: Number(e.target.value) })}
                 />
